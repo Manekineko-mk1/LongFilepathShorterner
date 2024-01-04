@@ -10,7 +10,7 @@ def create_long_filename_file(base_dir, file_length):
 
 def create_long_path_file(base_dir, file_length):
     """Create a file with a path longer than the specified length."""
-    long_dir = "long_sub_dir_test" + "\\a" * (file_length - len(base_dir) - 6)  # 12 for '\a.txt' and buffer
+    long_dir = "long_sub_dir_test" + "\\a" * (file_length - len(base_dir) - 6)  # 6 for '\a.txt' and buffer
     long_path = os.path.join(base_dir, long_dir, "a.txt")
     os.makedirs(os.path.dirname(long_path), exist_ok=True)
     with open(long_path, 'w') as f:
@@ -38,7 +38,8 @@ def is_path_long(path, threshold):
     return len(path) > threshold
 
 def test_file_operations(file_path):
-    """Perform rename, move, and delete operations on the file."""
+    """Perform rename, move, and delete operations on the file. 
+    Should encounter [WinError 3] The system cannot find the path specified error if LongPathsEnabled is set to 0."""
     try:
         # Rename
         new_path = file_path.replace(".txt", "_renamed.txt")
@@ -51,8 +52,8 @@ def test_file_operations(file_path):
         print(f"Moved to: {move_path}")
 
         # Delete
-        os.remove(move_path)
-        print(f"Deleted: {move_path}")
+        os.remove(file_path)
+        print(f"Deleted: {file_path}")
 
     except Exception as e:
         print(f"Error during operations on {file_path}: {e}")
@@ -67,7 +68,7 @@ def scan_and_operate_long_paths(base_dir, file_length):
                 test_file_operations(file_path)
 
 def main():
-    base_dir = "C:\\Users\\Jesse\\OneDrive\\Desktop\\LongPathTest"  # Change as per your base directory
+    base_dir = "C:\\Users\\jesse.tsang\\Desktop\\LongPathTest"  # Change as per your base directory
     file_length = 260  # Example length, adjust as needed
     
     # Check if long paths are supported -- Run this first
@@ -84,7 +85,7 @@ def main():
     #     print("Long path support is disabled.")
 
     # Scan base_dir for long paths and operate on them -- Run this after creating long paths and long files
-    # scan_and_operate_long_paths(base_dir, file_length)
+    scan_and_operate_long_paths(base_dir, file_length)
 
 if __name__ == "__main__":
     main()
