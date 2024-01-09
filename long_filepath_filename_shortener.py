@@ -1,10 +1,13 @@
 import os
 import hashlib
 import shutil
+import logging
 
 from utilities import check_long_path_support
 
-# TODO: Add logging throughout the script
+# Configure logging
+logging.basicConfig(filename='shortener.log', level=logging.DEBUG)
+
 # TODO: Add a feature that will output a list of files that were not renamed due to errors, output type: csv
 # TODO: Add a feature that will output a list of files and file path that were shortened, output type: csv
 
@@ -14,11 +17,11 @@ def shorten_long_filename(file_path):
     try:
         # Rename the file to a shorter name
         new_file_path = os.path.join(os.path.dirname(file_path), "short_filename.txt")
-        print(f"Trying to shortened filename to: {new_file_path}")
+        logging.info(f"Trying to shorten filename to: {new_file_path}")
         os.rename(file_path, new_file_path)
-        print(f"Renamed file to: {new_file_path}")
+        logging.info(f"Renamed file to: {new_file_path}")
     except (FileNotFoundError, PermissionError) as e:
-        print(f"Error renaming file: {e}")
+        logging.error(f"Error renaming file: {e}")
         return file_path  # Return the original file path if renaming failed
     
     return new_file_path
@@ -38,30 +41,30 @@ def shorten_long_path(file_path, num_directories_to_keep):
         
         # Join the components back together to form the new path
         new_file_path = os.sep.join(new_path_components)
-        print(f"Trying to shortened file path to: {new_file_path}")
+        logging.info(f"Trying to shorten file path to: {new_file_path}")
         
         # Rename the file
         # os.rename(file_path, new_file_path) # this will move the file to the new path
         shutil.copy2(file_path, new_file_path)  # this will copy the file to the new path
-        print(f"Renamed file path to: {new_file_path}")
+        logging.info(f"Renamed file path to: {new_file_path}")
         
         # Check the hash value and file attributes of the original and copied files
-        print(f"Checking file hash and attributes for {file_path} and {new_file_path}")
+        logging.info(f"Checking file hash and attributes for {file_path} and {new_file_path}")
         original_file_hash = get_file_hash(file_path)
         copied_file_hash = get_file_hash(new_file_path)
         
-        print(f"Original file hash: {original_file_hash}")
-        print(f"Copied file hash: {copied_file_hash}")
+        logging.info(f"Original file hash: {original_file_hash}")
+        logging.info(f"Copied file hash: {copied_file_hash}")
         
-        print(f"Checking file attributes for {file_path} and {new_file_path}")
+        logging.info(f"Checking file attributes for {file_path} and {new_file_path}")
         original_file_attributes = os.stat(file_path)
         copied_file_attributes = os.stat(new_file_path)
         
-        print(f"Original file attributes: {original_file_attributes}")
-        print(f"Copied file attributes: {copied_file_attributes}")
+        logging.info(f"Original file attributes: {original_file_attributes}")
+        logging.info(f"Copied file attributes: {copied_file_attributes}")
         
     except (FileNotFoundError, PermissionError) as e:
-        print(f"Error renaming file: {e}")
+        logging.error(f"Error renaming file: {e}")
         return file_path  # Return the original file path if renaming failed
     
     return new_file_path
@@ -84,24 +87,24 @@ def scan_long_paths_and_long_filename(base_dir, file_length):
             # Construct the full file path
             file_path = os.path.join(root, name)
             
-            print(f"File path: {file_path}")
-            print(f"Checking file: {name}")
-            print(f"Filename length: {len(name)}")
+            logging.info(f"File path: {file_path}")
+            logging.info(f"Checking file: {name}")
+            logging.info(f"Filename length: {len(name)}")
             
             # Check if the file path contains a long filename, and not just a long path
             if len(os.path.basename(file_path)) > 200:
-                print(f"Found long file name: {name}")
+                logging.info(f"Found long file name: {name}")
                 file_path = shorten_long_filename(file_path)
     
             # Check if the file path contains a long path, and not just a long filename
             if len(os.path.dirname(file_path)) > 255:
-                print(f"Found long directories path: {file_path}")
+                logging.info(f"Found long directories path: {file_path}")
                 file_path = shorten_long_path(file_path, 7)
             
 def get_file_hash(file_path):
     """Compute the SHA256 hash of a file."""
     
-    print(f"Computing hash for file: {file_path}")
+    logging.info(f"Computing hash for file: {file_path}")
 
     with open(file_path, "rb") as f:
         file_hash = hashlib.sha256()
@@ -117,11 +120,10 @@ def main():
     
     # Scan base_dir for long paths and operate on them -- Run this after creating long paths and long files
     if check_long_path_support(base_dir) is True:
-        print("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
+        logging.info("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
     else:
-        print("Long path support is disabled. Scanning for long paths and long filenames.")
+        logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
         scan_long_paths_and_long_filename(base_dir, file_length)
 
 if __name__ == "__main__":
     main()
-

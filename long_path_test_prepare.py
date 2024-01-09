@@ -17,6 +17,17 @@ def create_long_path_file(base_dir, file_length):
     os.makedirs(os.path.dirname(long_path), exist_ok=True)
     with open(long_path, 'w') as f:
         f.write("Test file for long path.")
+    
+    long_base_dir = "\\\\?\\" + base_dir
+    
+    # Create a test file at each subdirectory
+    subdirectories = long_dir.split("\\")
+    for i in range(1, len(subdirectories)):
+        subdirectory_path = os.path.join(long_base_dir, "\\".join(subdirectories[:i]))
+        test_file_path = os.path.join(subdirectory_path, f"test_file_level_{i}.txt")
+        with open(test_file_path, 'w') as f:
+            f.write(f"Test file at subdirectory level {i}.")
+
     return long_path
 
 
