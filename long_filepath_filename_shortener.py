@@ -2,11 +2,12 @@ import os
 import hashlib
 import shutil
 import logging
+import csv
 
 from utilities import check_long_path_support
 
 # Configure logging
-logging.basicConfig(filename='shortener.log', level=logging.DEBUG)
+logging.basicConfig(filename='logs/shortener.log', level=logging.DEBUG)
 
 # TODO: Add a feature that will output a list of files that were not renamed due to errors, output type: csv
 # TODO: Add a feature that will output a list of files and file path that were shortened, output type: csv
@@ -20,6 +21,12 @@ def shorten_long_filename(file_path):
         logging.info(f"Trying to shorten filename to: {new_file_path}")
         os.rename(file_path, new_file_path)
         logging.info(f"Renamed file to: {new_file_path}")
+        
+        # Record the modified file path in a CSV file
+        with open('output/modified_paths.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([file_path, new_file_path])
+        
     except (FileNotFoundError, PermissionError) as e:
         logging.error(f"Error renaming file: {e}")
         return file_path  # Return the original file path if renaming failed
@@ -30,44 +37,58 @@ def shorten_long_path(file_path, num_directories_to_keep):
     """Shorten the file path to keep only a certain number of directory levels."""
 
     try:
-        # Split the path into its components
-        path_components = file_path.split(os.sep)
-        
-        # Keep only the desired number of directory levels, starting from the 3rd element
-        new_path_components = path_components[3:3 + num_directories_to_keep]
-        
-        # Append the original file to the new path components
-        new_path_components.append(path_components[-1])  # -1 to get the last element, which is the file
-        
-        # Join the components back together to form the new path
-        new_file_path = os.sep.join(new_path_components)
+        new_file_path = create_new_path(file_path, num_directories_to_keep)
         logging.info(f"Trying to shorten file path to: {new_file_path}")
         
-        # Rename the file
-        # os.rename(file_path, new_file_path) # this will move the file to the new path
-        shutil.copy2(file_path, new_file_path)  # this will copy the file to the new path
+        copy_file_to_new_path(file_path, new_file_path)
         logging.info(f"Renamed file path to: {new_file_path}")
         
-        # Check the hash value and file attributes of the original and copied files
-        logging.info(f"Checking file hash and attributes for {file_path} and {new_file_path}")
-        original_file_hash = get_file_hash(file_path)
-        copied_file_hash = get_file_hash(new_file_path)
+        check_file_hash_and_attributes(file_path, new_file_path)
         
-        logging.info(f"Original file hash: {original_file_hash}")
-        logging.info(f"Copied file hash: {copied_file_hash}")
-        
-        logging.info(f"Checking file attributes for {file_path} and {new_file_path}")
-        original_file_attributes = os.stat(file_path)
-        copied_file_attributes = os.stat(new_file_path)
-        
-        logging.info(f"Original file attributes: {original_file_attributes}")
-        logging.info(f"Copied file attributes: {copied_file_attributes}")
+        # Record the modified file path in a CSV file
+        with open('output/modified_paths.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([file_path, new_file_path])
         
     except (FileNotFoundError, PermissionError) as e:
         logging.error(f"Error renaming file: {e}")
         return file_path  # Return the original file path if renaming failed
     
     return new_file_path
+
+def create_new_path(file_path, num_directories_to_keep):
+    """Create a new path with a limited number of directory levels."""
+    path_components = file_path.split(os.sep)
+    new_path_components = path_components[3:3 + num_directories_to_keep]
+    new_path_components.append(path_components[-1])  # -1 to get the last element, which is the file
+    new_file_path = os.sep.join(new_path_components)
+    
+    logging.info(f"Created new file path: {new_file_path}")
+    
+    return new_file_path
+
+def copy_file_to_new_path(file_path, new_file_path):
+    """Copy the file to the new path."""
+    logging.info(f"Copying file from {file_path} to {new_file_path}")
+    # os.rename(file_path, new_file_path) # this will move the file to the new path
+    shutil.copy2(file_path, new_file_path)
+    logging.info(f"File copied to {new_file_path}")
+
+def check_file_hash_and_attributes(file_path, new_file_path):
+    """Check the hash value and file attributes of the original and copied files."""
+    logging.info(f"Checking file hash and attributes for {file_path} and {new_file_path}")
+    original_file_hash = get_file_hash(file_path)
+    copied_file_hash = get_file_hash(new_file_path)
+    
+    logging.info(f"Original file hash: {original_file_hash}")
+    logging.info(f"Copied file hash: {copied_file_hash}")
+    
+    logging.info(f"Checking file attributes for {file_path} and {new_file_path}")
+    original_file_attributes = os.stat(file_path)
+    copied_file_attributes = os.stat(new_file_path)
+    
+    logging.info(f"Original file attributes: {original_file_attributes}")
+    logging.info(f"Copied file attributes: {copied_file_attributes}")
 
 def scan_long_paths_and_long_filename(base_dir, file_length):
     """
