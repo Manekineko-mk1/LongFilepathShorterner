@@ -162,7 +162,7 @@ def get_file_hash(file_path):
     return file_hash.hexdigest()
 
 def main():
-    base_dir = "C:\\Users\\Jesse\\OneDrive\\Desktop\\LongPathTest"  # Change as per your base directory
+    base_dir = "C:\\Users\\jesse.tsang\\Desktop\\LongPathTest"  # Change as per your base directory
     file_length = 260  # Example length, adjust as needed
     
     # Check if long paths are supported -- Run this first
