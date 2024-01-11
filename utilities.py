@@ -21,5 +21,16 @@ def print_filepath_and_filename_length(file_path):
     print(f"File path: {file_path} length: {len(file_path)}")
     print(f"Filename: {os.path.basename(file_path)} length: {len(os.path.basename(file_path))}")
 
-file_path = "C:\\Users\\user\\Documents\\GitHub\\python-snippets\\long_filepath_filename_shortener\\long_sub_dir\\test.txt"
-print_filepath_and_filename_length(file_path)
+def read_filepaths_from_txt(txt_file):
+    """Read file paths from a text file."""
+    if not os.path.exists(txt_file):
+        print(f"Error: {txt_file} does not exist.")
+        return
+
+    with open(txt_file, 'r') as f:
+        for line in f:
+            file_path = line.strip()
+            print_filepath_and_filename_length(file_path)
+
+txt_file = "test_filepaths.txt"
+read_filepaths_from_txt(txt_file)
