@@ -41,7 +41,7 @@ def shorten_long_filename(file_path):
 # 3.1 If in-place renaming is possible, we should start from the end of the path, because:
 #       3.1.1 the beginning of the path is more likely to be more meaningful
 #       3.1.2 we maybe able to rename just a few directories to shorten the path, this will keep the path as original as possible
-# 4. For large files in the range of a few hundred GBs, renaming will definitely preferable to copying.
+#       3.1.3 for large files in the range of a few hundred GBs, renaming will definitely preferable to copying.
 # 5. How to handle if a file name collision occurs? Possible solution: Use a try-except block to catch the error and have a helper function to handle the collision.
 def shorten_long_path(file_path, num_directories_to_keep):
     """Shorten the file path to keep only a certain number of directory levels."""
