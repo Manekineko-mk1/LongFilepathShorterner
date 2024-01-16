@@ -10,7 +10,6 @@ from utilities import check_long_path_support
 logging.basicConfig(filename='logs/shortener.log', level=logging.DEBUG)
 
 # TODO: Add a feature that will output a list of files that were not renamed due to errors, output type: csv
-# TODO: Add a feature that will output a list of files and file path that were shortened, output type: csv
 
 def shorten_long_filename(file_path):
     """Rename the file to a shorter name."""
@@ -33,6 +32,17 @@ def shorten_long_filename(file_path):
     
     return new_file_path
 
+# TODO: Check if it is possible to do in-place renaming of the file path
+# TODO: Check how to show the progress of the process: progress bar, percentage, etc.
+# Things to consider:
+# 1. How to handle files that are in use. Possible solution: Use a try-except block to catch the error and skip the file
+# 2. How to handle files that are locked, for example, by anti-virus software. Possible solution: Use a try-except block to catch the error and skip the file
+# 3. We should check if we can do in-place renaming, if yes, should we start from the end of the path or from the beginning of the path? 
+# 3.1 If in-place renaming is possible, we should start from the end of the path, because:
+#       3.1.1 the beginning of the path is more likely to be more meaningful
+#       3.1.2 we maybe able to rename just a few directories to shorten the path, this will keep the path as original as possible
+# 4. For large files in the range of a few hundred GBs, renaming will definitely preferable to copying.
+# 5. How to handle if a file name collision occurs? Possible solution: Use a try-except block to catch the error and have a helper function to handle the collision.
 def shorten_long_path(file_path, num_directories_to_keep):
     """Shorten the file path to keep only a certain number of directory levels."""
 
