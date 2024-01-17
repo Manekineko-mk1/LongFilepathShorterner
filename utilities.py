@@ -1,3 +1,5 @@
+import hashlib
+import logging
 import os
 
 def check_long_path_support(base_dir):
@@ -41,6 +43,25 @@ def read_filepaths_from_txt(txt_file):
         for line in f:
             file_path = line.strip()
             print_filepath_and_filename_length(file_path)
+
+def get_file_hash(file_path):
+    """Compute the SHA256 hash of a file."""
+    
+    logging.info(f"Computing hash for file: {file_path}")
+
+    with open(file_path, "rb") as f:
+        file_hash = hashlib.sha256()
+        chunk = f.read(8192)
+        while chunk:
+            file_hash.update(chunk)
+            chunk = f.read(8192)
+    return file_hash.hexdigest()
+
+def write_to_file(file, content):
+    try:
+        file.write(f"{content}\n")
+    except IOError as e:
+        logging.error(f"Error writing to file: {e}")
 
 txt_file = "test_filepaths.txt"
 # read_filepaths_from_txt(txt_file)
