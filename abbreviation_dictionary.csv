@@ -1,2 +1,9 @@
 production, prod
 project, proj
+
+
+Before Rename:                              After Rename:
+----------------                            --------------
+/project-ABC/production_1.0.0/file1.txt     /project-ABC/prod_1.0.0/file1.txt
+/B34af90a_W15vv359/PPT/file2.ppt            /B34af90a_W15vv359/PPT/file2.ppt
+
