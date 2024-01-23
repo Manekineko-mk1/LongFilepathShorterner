@@ -6,12 +6,13 @@ import configparser
 import re
 
 from utilities import check_long_path_support, get_file_hash, write_to_file
+from datetime import datetime
 
 date_str = datetime.now().strftime('%Y%m%d')
 
 # Load the configuration from the .ini file
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('config/config.ini')
 log_dir = config.get('DEFAULT', 'log_dir')
 output_dir = config.get('DEFAULT', 'output_dir')
 
@@ -194,11 +195,11 @@ def main():
     print(f"Directory length: {dir_length}")
     
     # Scan base_dir for long paths and operate on them -- Run this after creating long paths and long files
-    if check_long_path_support(base_dir) is True:
-        logging.info("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
-    else:
-        logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
-        scan_long_paths_and_long_filename(base_dir, file_length)
+    # if check_long_path_support(base_dir) is True:
+    #     logging.info("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
+    # else:
+    #     logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
+    #     scan_long_paths_and_long_filename(base_dir, file_length)
 
 if __name__ == "__main__":
     main()
