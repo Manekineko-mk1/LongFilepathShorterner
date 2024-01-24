@@ -5,18 +5,18 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from long_filepath_filename_shortener import shorten_long_dir_wip
+from long_filepath_filename_shortener import shorten_long_dir
 
 class TestShortenLongDir(unittest.TestCase):
     def setUp(self):
         # Create a temporary directory for testing
         self.test_dir = os.path.join(os.getcwd(), 'test', 'test_dir')
         os.makedirs(self.test_dir, exist_ok=True)
-        print(f"Creating directory: {self.test_dir}")
+        print(f"\nCreating directory: {self.test_dir}")
 
         # Create a dictionary for testing
         self.dictionary_path = os.path.join(self.test_dir, "dictionary.csv")
-        print(f"Creating file: {self.dictionary_path}")
+        print(f"\nCreating file: {self.dictionary_path}")
         with open(self.dictionary_path, "w") as f:
             f.write("old,new\n")
             f.write("long_dir,ld\n")
@@ -36,10 +36,7 @@ class TestShortenLongDir(unittest.TestCase):
         # Test case: a directory with a long nested directory name is shortened
         long_dir_path = os.path.join(self.test_dir, "long_dir", "long_sub_dir")
         os.makedirs(long_dir_path, exist_ok=True)
-        # print(f"Before renaming: {long_dir_path}")
-        shorten_long_dir_wip(long_dir_path, self.dictionary_path, 58)
-        
-        # print(f"Attemping to rename the nested folders to: {new_dir_path}")
+        shorten_long_dir(long_dir_path, self.dictionary_path, 58)
         self.assertTrue(os.path.exists(new_dir_path))
         print(f"Test status: {os.path.exists(new_dir_path)}")
 
@@ -52,7 +49,7 @@ class TestShortenLongDir(unittest.TestCase):
         new_dir_path = os.path.join(self.test_dir, "ld")
         os.makedirs(new_dir_path, exist_ok=True)
         print(f"Before renaming: {long_dir_path}")
-        shorten_long_dir_wip(long_dir_path, self.dictionary_path, 56)
+        shorten_long_dir(long_dir_path, self.dictionary_path, 56)
         new_dir_path_conflict = os.path.join(self.test_dir, "ld_1")
         print(f"After renaming: {new_dir_path_conflict}")
         self.assertTrue(os.path.exists(new_dir_path_conflict))
@@ -65,8 +62,8 @@ class TestShortenLongDir(unittest.TestCase):
         os.makedirs(long_dir_path, exist_ok=True)
         print(f"Before renaming: {long_dir_path}")
         with self.assertLogs(level="ERROR") as cm:
-            shorten_long_dir_wip(long_dir_path, self.dictionary_path, 10)
-        self.assertIn("Converted path is still too long", cm.output[0])
+            shorten_long_dir(long_dir_path, self.dictionary_path, 10)
+        self.assertIn("Not possible to conver the folder path to the threshold!! Skipping the shorten process!", cm.output[0])
 
 if __name__ == "__main__":
     unittest.main()

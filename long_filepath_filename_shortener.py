@@ -119,8 +119,9 @@ def check_for_naming_conflict(file_path, new_name, ext):
     str: The new file path if the file was successfully renamed, or None if it wasn't.
     """
     
-    number_of_retry = config.get('DEFAULT', 'number_of_retry')
-    if not isinstance(number_of_retry, int) or number_of_retry < 1:
+    try:
+        number_of_retry = int(config.get('DEFAULT', 'number_of_retry'))
+    except (ValueError, TypeError):
         logging.warning(f"Invalid 'number_of_retry' value: {number_of_retry}. Using default value of 5.")
         number_of_retry = 5
     
@@ -246,11 +247,11 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold):
             continue
         
         # Try to rename
-        rename_dir(old_dir_path, new_dir_path)
-        
+        new_dir_path = rename_dir(old_dir_path, new_dir_path)
+         
         if len(new_dir_path) <= dir_length_threshold:
-            logging.info(f"Completed shorten process on: {dir_path} | New folder length: {len(new_dir_path)}")
-            print(f"Completed shorten process on: {dir_path} | New folder length: {len(new_dir_path)}")
+            logging.info(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
+            print(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
             break
         
     return new_dir_path
@@ -267,27 +268,38 @@ def rename_dir(old_dir_path, new_dir_path):
     old_dir_path (str): The original path of the directory to be renamed.
     new_dir_path (str): The new path for the directory.
     """
-    number_of_retry = config.get('DEFAULT', 'number_of_retry')
-    if not isinstance(number_of_retry, int) or number_of_retry < 1:
+    
+    try:
+        number_of_retry = int(config.get('DEFAULT', 'number_of_retry'))
+    except (ValueError, TypeError):
         logging.warning(f"Invalid 'number_of_retry' value: {number_of_retry}. Using default value of 5.")
         number_of_retry = 5
-        
+    
     try:
         os.rename(old_dir_path, new_dir_path)
     except FileExistsError:
+        logging.warning(f"Directory already exists: {new_dir_path}")
+        
+        
         # A directory with the new name already exists, so append a number to the new name
         i = 1
         while i <= number_of_retry:
             try:
-                os.rename(old_dir_path, f"{new_dir_path}_{i}")
+                logging.warning(f"Retrying rename with new name: {new_dir_path}_{i}")
+                
+                new_dir_path = f"{new_dir_path}_{i}"
+                
+                os.rename(old_dir_path, new_dir_path)
                 logging.info(f"Renamed '{old_dir_path}' to '{new_dir_path}'")
                 print(f"Renamed '{old_dir_path}' to '{new_dir_path}'")
-                break
+                return new_dir_path
             except FileExistsError:
                 i += 1
+        logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}' after {number_of_retry} attempts")
     except OSError or Exception as e:
             logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}': {e}")
             print(f"Failed to rename '{old_dir_path}' to '{new_dir_path}': {e}")
+            return None
 
 
 def handle_long_filename(file_path, filename_length, filename, long_filename_list_file):
@@ -340,12 +352,12 @@ def scan_long_paths_and_long_filename(base_dir):
 def main():
     # Load the configuration from the .ini file
     base_dir = config.get('DEFAULT', 'base_dir')
-    file_length = config.getint('DEFAULT', 'file_length')
-    dir_length = config.getint('DEFAULT', 'dir_length')
+    file_length_threshold = config.getint('DEFAULT', 'file_length_threshold')
+    dir_length_threshold = config.getint('DEFAULT', 'dir_length_threshold')
     
     print(f"Base directory: {base_dir}")
-    print(f"File length: {file_length}")
-    print(f"Directory length: {dir_length}")
+    print(f"File length threshold: {file_length_threshold}")
+    print(f"Directory length threshold: {dir_length_threshold}")
     
     # Scan base_dir for long paths and operate on them -- Run this after creating long paths and long files
     # if check_long_path_support(base_dir) is True:
