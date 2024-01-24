@@ -2,6 +2,22 @@ import hashlib
 import logging
 import os
 
+def check_file_hash_and_attributes(file_path, new_file_path):
+    """Check the hash value and file attributes of the original and copied files."""
+    logging.info(f"Checking file hash and attributes for {file_path} and {new_file_path}")
+    original_file_hash = get_file_hash(file_path)
+    copied_file_hash = get_file_hash(new_file_path)
+    
+    logging.info(f"Original file hash: {original_file_hash}")
+    logging.info(f"Copied file hash: {copied_file_hash}")
+    
+    logging.info(f"Checking file attributes for {file_path} and {new_file_path}")
+    original_file_attributes = os.stat(file_path)
+    copied_file_attributes = os.stat(new_file_path)
+    
+    logging.info(f"Original file attributes: {original_file_attributes}")
+    logging.info(f"Copied file attributes: {copied_file_attributes}")
+
 def check_long_path_support(base_dir):
     """Check if the system supports long file paths (> 256 characters)."""
     test_dir = "long_sub_dir_test" + "\\a" * 200  # Create a long directory name
