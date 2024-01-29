@@ -1,0 +1,6 @@
+Computer\HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem
+
+LongPathsEnabled
+
+0 = Disable
+1 = Enable
