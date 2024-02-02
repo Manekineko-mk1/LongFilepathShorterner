@@ -9,19 +9,6 @@ import sys
 from utilities import check_long_path_support, write_to_file
 from datetime import datetime
 
-# date_str = datetime.now().strftime('%Y%m%d')
-
-# Load the configuration from the .ini file
-# config = configparser.ConfigParser()
-# config.read('config/config.ini')
-# log_dir = config.get('DEFAULT', 'log_dir')
-# output_dir = config.get('DEFAULT', 'output_dir')
-
-# LONG_DIR_PATH_SCAN_OUTPUT = config.get('DEFAULT', 'long_dir_path_scan_output')
-# LONG_FILENAME_SCAN_OUTPUT = config.get('DEFAULT', 'long_filename_scan_output')
-# FILE_LENGTH_THRESHOLD = config.get('DEFAULT', 'file_length_threshold')
-# DIR_LENGTH_THRESHOLD = config.get('DEFAULT', 'dir_length_threshold')
-
 # TODO
 # 1. Batching output for the scan_long_paths_and_long_filename function
 # 2. Create a function to simulate the shortening process on the long paths and long filenames
@@ -35,7 +22,7 @@ from datetime import datetime
 
 def initConfigValues():
     """ Initialize the configuration values from the config.ini file. """
-    global config, log_dir, output_dir, LONG_DIR_PATH_SCAN_OUTPUT, LONG_FILENAME_SCAN_OUTPUT, FILE_LENGTH_THRESHOLD, DIR_LENGTH_THRESHOLD
+    global config, log_dir, output_dir, LONG_DIR_PATH_SCAN_OUTPUT, LONG_FILENAME_SCAN_OUTPUT, NUMBER_OF_RETRY, FILE_LENGTH_THRESHOLD, DIR_LENGTH_THRESHOLD, SCAN_ENTRY_THRESHOLD
     global date_str
     config = configparser.ConfigParser()
     config.read('config/config.ini')
@@ -63,6 +50,14 @@ def initConfigValues():
     except (ValueError, TypeError):
         logging.warning(f"Invalid 'dir_length_threshold' value: {DIR_LENGTH_THRESHOLD}. Using default value of 200.")
         DIR_LENGTH_THRESHOLD = 200
+    
+    try:
+        SCAN_ENTRY_THRESHOLD = int(config.get('DEFAULT', 'scan_entry_threshold'))
+    except (ValueError, TypeError):
+        logging.warning(f"Invalid 'scan_entry_threshold' value: {SCAN_ENTRY_THRESHOLD}. Using default value of 1000.")
+        SCAN_ENTRY_THRESHOLD = 1000
+        
+    
     
     # Configure logging
     logging.basicConfig(filename=f'{log_dir}/shortener_log_{date_str}.log', level=logging.DEBUG)
@@ -170,13 +165,7 @@ def check_for_naming_conflict(file_path, new_name, ext):
     str: The new file path if the file was successfully renamed, or None if it wasn't.
     """
     
-    try:
-        number_of_retry = int(config.get('DEFAULT', 'number_of_retry'))
-    except (ValueError, TypeError):
-        logging.warning(f"Invalid 'number_of_retry' value: {number_of_retry}. Using default value of 5.")
-        number_of_retry = 5
-    
-    for i in range(number_of_retry):
+    for i in range(NUMBER_OF_RETRY):
         new_file_path = os.path.join(os.path.dirname(file_path), new_name)
         if not os.path.exists(new_file_path):
             return new_file_path
@@ -286,8 +275,8 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold):
     # Check if the renamed path will be within the threshold
     new_path = os.sep.join(new_dir_components)
     if len(new_path) > dir_length_threshold:
-        logging.error(f"Not possible to conver the folder path to the threshold!! Skipping the shorten process! | Original path: {dir_path} | Please consider updating the dictionary.")
-        print(f"Not possible to conver the folder path to the threshold!! Skipping the shorten process!  | Original path: {dir_path} | Please consider updating the dictionary.")
+        logging.error(f"Not possible to convert the folder path to the threshold!! Skipping the shorten process! | Original path: {dir_path} | Please consider updating the dictionary.")
+        print(f"Not possible to convert the folder path to the threshold!! Skipping the shorten process!  | Original path: {dir_path} | Please consider updating the dictionary.")
         return None
 
     # Start from the end of the path and work towards the root
@@ -375,7 +364,7 @@ def handle_long_dir_path(file_path, long_file_path_list_file):
         write_to_file(long_file_path_list_file, file_path)
 
 
-def scan_long_paths_and_long_filename(base_dir):
+def scan_long_paths_and_long_filename(base_dir, counters):
     """
     Scans a directory for files with long paths or filenames.
 
@@ -394,24 +383,35 @@ def scan_long_paths_and_long_filename(base_dir):
         print(f"Modified base directory: {long_base_dir}")
     else:
         long_base_dir = base_dir
-     
-    date_str = datetime.now().strftime('%Y%m%d')
-    with open(f'{output_dir}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}.txt', 'a') as long_file_path_list_file, \
-         open(f'{output_dir}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}.txt', 'a') as long_filename_list_file:
-        
-        for entry in os.scandir(long_base_dir):
-            if entry.is_file():
-                file_path = entry.path
+
+    for entry in os.scandir(long_base_dir):
+        if entry.is_file():
+            file_path = entry.path
                 
-                logging.info(f"File path: {file_path}")
-                logging.info(f"Checking file: {entry.name}")
-                logging.info(f"Filename length: {len(entry.name)}")
+            logging.info(f"File path: {file_path}")
+            logging.info(f"Checking file: {entry.name}")
+            logging.info(f"Filename length: {len(entry.name)}")
                 
-                handle_long_filename(file_path, long_filename_list_file)
-                handle_long_dir_path(file_path, long_file_path_list_file)
+            if len(os.path.basename(file_path)) >= FILE_LENGTH_THRESHOLD:
+                if counters['filename_counter'] >= SCAN_ENTRY_THRESHOLD:
+                    counters['filename_file_part'] += 1
+                    counters['filename_counter'] = 0
+                counters['filename_counter'] += 1
+                with open(f'{output_dir}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
+                    logging.info(f"Found long filename: {os.path.basename(file_path)}")
+                    write_to_file(long_filename_list_file, file_path)
+
+            if len(os.path.dirname(file_path)) >= DIR_LENGTH_THRESHOLD:
+                if counters['dir_counter'] >= SCAN_ENTRY_THRESHOLD:
+                    counters['dir_file_part'] += 1
+                    counters['dir_counter'] = 0
+                counters['dir_counter'] += 1
+                with open(f'{output_dir}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
+                    logging.info(f"Found long directories path: {file_path}")
+                    write_to_file(long_file_path_list_file, file_path)
                 
-            elif entry.is_dir():
-                scan_long_paths_and_long_filename(entry.path)
+        elif entry.is_dir():
+            scan_long_paths_and_long_filename(entry.path, counters)
 
 
 def main():
@@ -429,7 +429,8 @@ def main():
         logging.info("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
     else:
         logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
-        scan_long_paths_and_long_filename(base_dir)
+        counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
+        scan_long_paths_and_long_filename(base_dir, counters)
 
 if __name__ == "__main__":
     main()

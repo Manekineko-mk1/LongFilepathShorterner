@@ -5,10 +5,12 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from long_filepath_filename_shortener import shorten_long_dir, shorten_long_filename
+from long_filepath_filename_shortener import initConfigValues, shorten_long_dir, shorten_long_filename
 
 class TestShortenLongDir(unittest.TestCase):
     def setUp(self):
+        initConfigValues()
+        
         # Create a temporary directory for testing
         self.test_dir = os.path.join(os.getcwd(), 'test', 'test_dir')
         os.makedirs(self.test_dir, exist_ok=True)
@@ -66,7 +68,7 @@ class TestShortenLongDir(unittest.TestCase):
         print(f"Before renaming: {long_dir_path}")
         with self.assertLogs(level="ERROR") as cm:
             shorten_long_dir(long_dir_path, self.dictionary_path, 10)
-        self.assertIn("Not possible to conver the folder path to the threshold!! Skipping the shorten process!", cm.output[0])
+        self.assertIn("Not possible to convert the folder path to the threshold!! Skipping the shorten process!", cm.output[0])
 
     
     def test_shorten_long_nested_dir_and_filename(self):
