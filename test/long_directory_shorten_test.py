@@ -41,7 +41,7 @@ class TestShortenLongDir(unittest.TestCase):
         # Test case: a directory with a long nested directory name is shortened
         long_dir_path = os.path.join(self.test_dir, "long_dir", "long_sub_dir")
         os.makedirs(long_dir_path, exist_ok=True)
-        shorten_long_dir(long_dir_path, self.dictionary_path, 58)
+        shorten_long_dir(long_dir_path, self.dictionary_path, len(new_dir_path))
         self.assertTrue(os.path.exists(new_dir_path))
         print(f"Test status: {os.path.exists(new_dir_path)}")
 
@@ -54,7 +54,7 @@ class TestShortenLongDir(unittest.TestCase):
         new_dir_path = os.path.join(self.test_dir, "ld")
         os.makedirs(new_dir_path, exist_ok=True)
         print(f"Before renaming: {long_dir_path}")
-        shorten_long_dir(long_dir_path, self.dictionary_path, 56)
+        shorten_long_dir(long_dir_path, self.dictionary_path, len(new_dir_path))
         new_dir_path_conflict = os.path.join(self.test_dir, "ld_1")
         print(f"After renaming: {new_dir_path_conflict}")
         self.assertTrue(os.path.exists(new_dir_path_conflict))
@@ -87,8 +87,8 @@ class TestShortenLongDir(unittest.TestCase):
         print(f"Expected new file name: {new_filename} | Length: {len(new_filename)}")
         print(f"Expected new directory path: {new_dir_path} | Length: {len(new_dir_path)}")
         
-        shorten_long_filename(long_file_path, self.dictionary_path, 58)
-        shorten_long_dir(long_dir_path, self.dictionary_path, 58)        
+        shorten_long_filename(long_file_path, self.dictionary_path, len(new_filename))
+        shorten_long_dir(long_dir_path, self.dictionary_path, len(new_dir_path))        
         
         self.assertTrue(os.path.exists(new_dir_path))
         self.assertTrue(os.path.exists(new_filename))
