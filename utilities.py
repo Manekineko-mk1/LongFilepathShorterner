@@ -20,7 +20,7 @@ def check_file_hash_and_attributes(file_path, new_file_path):
 
 def check_long_path_support(base_dir):
     """Check if the system supports long file paths (> 256 characters)."""
-    test_dir = "long_sub_dir_test" + "\\a" * 200  # Create a long directory name
+    test_dir = "long_sub_dir_test" + "\\a" * 260  # Create a long directory name
     test_path = os.path.join(base_dir, test_dir, "test.txt")
     try:
         os.makedirs(os.path.dirname(test_path), exist_ok=True)

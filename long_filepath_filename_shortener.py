@@ -65,7 +65,15 @@ def initConfigValues():
         DIR_LENGTH_THRESHOLD = 200
     
     # Configure logging
-    logging.basicConfig(filename=f'{log_dir}/shortener_log_{date_str}.log', level=logging.DEBUG)       
+    logging.basicConfig(filename=f'{log_dir}/shortener_log_{date_str}.log', level=logging.DEBUG)
+    logging.info("Starting the long path and long filename shortener script...")
+    logging.info(f"File length threshold: {FILE_LENGTH_THRESHOLD}")
+    logging.info(f"Directory length threshold: {DIR_LENGTH_THRESHOLD}")
+    logging.info(f"Number of retry: {NUMBER_OF_RETRY}")
+    logging.info(f"Log directory: {log_dir}")
+    logging.info(f"Output directory: {output_dir}")
+    logging.info(f"Long directory path scan output: {LONG_DIR_PATH_SCAN_OUTPUT}")
+    logging.info(f"Long filename scan output: {LONG_FILENAME_SCAN_OUTPUT}")
 
 
 def load_dictionary(dictionary_path):
