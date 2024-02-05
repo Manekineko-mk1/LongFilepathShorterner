@@ -121,8 +121,8 @@ class TestBreakDownFilename(unittest.TestCase):
         # Test Case 2: Edge case with non-existent dictionary file
         try:
             load_dictionary('non_existent.csv')
-        except SystemExit as e:
-            assert str(e) == "1"
+        except FileNotFoundError as e:
+            assert str(e) == "Dictionary file does not exist: non_existent.csv"
             print("Test Case 2 Passed")
         except AssertionError:
             print("Test Case 2 Failed")
@@ -132,14 +132,22 @@ class TestBreakDownFilename(unittest.TestCase):
             pass
         try:
             load_dictionary('empty_dictionary.csv')
-        except SystemExit as e:
-            assert str(e) == "1"
+        except ValueError as e:
+            assert str(e) == "ERROR: Dictionary file is empty: empty_dictionary.csv"
             print("Test Case 3 Passed")
         except AssertionError:
             print("Test Case 3 Failed")
         os.remove('empty_dictionary.csv')
 
-
+        # Test Case 4: Edge case with invalid dictionary file
+        with open('invalid_dictionary.csv', 'w', newline='') as file:
+            file.write("This is not a valid CSV file.")
+        try:
+            load_dictionary('invalid_dictionary.csv')
+            assert False, "Expected an exception from load_dictionary"
+        except Exception as e:
+            print("Test Case 4 Passed")
+        os.remove('invalid_dictionary.csv')
 
 if __name__ == '__main__':
     unittest.main()

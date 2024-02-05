@@ -49,8 +49,6 @@ def read_config_values():
         'dry_run_dir': config.get('DEFAULT', 'dry_run_dir'),
         'date_str': datetime.now().strftime('%Y%m%d')
     }
-    
-    
 
     return config_values
 
@@ -84,6 +82,7 @@ def load_dictionary(dictionary_path):
         logging.error(f"Failed to load dictionary: {str(e)}")
         print(f"Failed to load dictionary: {str(e)}. Proceeding with an empty dictionary.")
         dictionary = {}
+        return dictionary
     
     if not dictionary_conversion_pairs:
         logging.error(f"ERROR: Dictionary file is empty: {dictionary_path}")
@@ -204,6 +203,17 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     rename_filename(file_path, new_file_path)
 
 
+def simulate_rename(old_dir_path, new_dir_path):
+    dry_run_dir = CONFIG_VALUES.get('dry_run_dir')
+    long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
+    output_dir = CONFIG_VALUES.get('output_dir')
+    date_str = CONFIG_VALUES.get('date_str')
+    
+    logging.info(f"dry_run_dir: {dry_run_dir} | long_dir_path_modified_output: {long_dir_path_modified_output} | output_dir: {output_dir} | date_str: {date_str}")
+    logging.info(f"Dry Run: Simulating rename of '{old_dir_path}' to '{new_dir_path}'")
+    write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
+
+
 def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=True):
     """
     Renames a directory to a shorter name based on a provided dictionary.
@@ -228,7 +238,6 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
     new_path = os.sep.join(new_dir_components)
     if len(new_path) > dir_length_threshold:
         logging.error(f"Not possible to convert the folder path to the threshold!! Skipping the shorten process! | Original path: {dir_path} | Please consider updating the dictionary.")
-        print(f"Not possible to convert the folder path to the threshold!! Skipping the shorten process!  | Original path: {dir_path} | Please consider updating the dictionary.")
         return None
 
     # Start from the end of the path and work towards the root
@@ -238,22 +247,15 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
         
         # Skip if the old and new directory names are the same
         if old_dir_path == new_dir_path:
-            print(f"Old and new directory names are the same: {old_dir_path} - No need to rename, skipping...")
+            logging.info(f"Old and new directory names are the same: {old_dir_path} - No need to rename, skipping...")
             continue
         
         # Try to rename
         if dry_run:
-            dry_run_dir = CONFIG_VALUES.get('dry_run_dir')
-            long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
-            output_dir = CONFIG_VALUES.get('output_dir')
-            date_str = CONFIG_VALUES.get('date_str')
-            
-            print(f"dry_run_dir: {dry_run_dir} | long_dir_path_modified_output: {long_dir_path_modified_output} | output_dir: {output_dir} | date_str: {date_str}")
-            
-            logging.info(f"Dry Run: Simulating rename of '{old_dir_path}' to '{new_dir_path}'")
-            write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
+            simulate_rename(old_dir_path, new_dir_path)
         else:
             new_dir_path = rename_dir(old_dir_path, new_dir_path)
+            logging.info(f"Renamed folder to: {new_dir_path}")
         
         if len(new_dir_path) <= dir_length_threshold:
             logging.info(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
