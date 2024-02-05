@@ -1,12 +1,8 @@
-import configparser
-import datetime
 import unittest
 import os
 import shutil
 import sys
 import csv
-
-from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -89,7 +85,7 @@ class TestShortenLongDir(unittest.TestCase):
         print(f"Expected new file name: {new_filename} | Length: {len(new_filename)}")
         print(f"Expected new directory path: {new_dir_path} | Length: {len(new_dir_path)}")
         
-        shorten_long_filename(long_file_path, self.dictionary_path, len(new_filename))
+        shorten_long_filename(long_file_path, self.dictionary_path, len(new_filename), dry_run=False)
         shorten_long_dir(long_dir_path, self.dictionary_path, len(new_dir_path), dry_run=False)     
         
         self.assertTrue(os.path.exists(new_dir_path))
@@ -114,7 +110,7 @@ class TestShortenLongDir(unittest.TestCase):
         print(f"Expected new file name: {new_filename} | Length: {len(new_filename)}")
         print(f"Expected new directory path: {new_dir_path} | Length: {len(new_dir_path)}")
 
-        shorten_long_filename(long_file_path, self.dictionary_path, len(new_filename))
+        shorten_long_filename(long_file_path, self.dictionary_path, len(new_filename), dry_run=True)
         shorten_long_dir(long_dir_path, self.dictionary_path, len(new_dir_path), dry_run=True)     
 
         # Since it's a dry run, the directories and files should not actually be renamed

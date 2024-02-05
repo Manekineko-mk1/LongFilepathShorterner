@@ -34,7 +34,7 @@ def read_config_values():
         'output_dir': config.get('DEFAULT', 'output_dir'),
         'dir_scan_dir': config.get('DEFAULT', 'dir_scan_dir'),
         'filename_scan_dir': config.get('DEFAULT', 'filename_scan_dir'),
-        'file_length_threshold': get_int_config_value(config, 'file_length_threshold', 200),
+        'filename_length_threshold': get_int_config_value(config, 'filename_length_threshold', 200),
         'dir_length_threshold': get_int_config_value(config, 'dir_length_threshold', 200),
         'scan_entry_threshold': get_int_config_value(config, 'scan_entry_threshold', 1000),
         'number_of_retry': get_int_config_value(config, 'number_of_retry', 5),
@@ -169,7 +169,7 @@ def rename_filename(file_path, new_file_path):
             writer.writerow([file_path, str(e)])
 
 
-def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
+def shorten_long_filename(file_path, dictionary_path, filename_length_threshold, dry_run=True):
     """
     Renames a file to a shorter name based on a provided dictionary.
 
@@ -180,6 +180,7 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     """
     logging.info(f"Processing file: {file_path}")
     
+    
     dictionary = load_dictionary(dictionary_path)
 
     filename = os.path.basename(file_path)
@@ -189,7 +190,7 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     new_components = convert_components(components, dictionary)
     new_name = '-'.join(new_components) + ext
     
-    if len(new_name) > file_length_threshold:
+    if len(new_name) > filename_length_threshold:
         logging.error(f"New filename is too long: {new_name}")
         return None
     
@@ -200,18 +201,23 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     
     logging.info(f"Renaming file to: {new_file_path}")
     print(f"Renaming file to: {new_file_path}")
-    rename_filename(file_path, new_file_path)
+    
+    if dry_run:
+        long_filename_modified_output = CONFIG_VALUES.get('long_filename_modified_output')
+        simulate_rename(file_path, new_file_path, long_filename_modified_output)        
+    else:
+        rename_filename(file_path, new_file_path)
 
 
-def simulate_rename(old_dir_path, new_dir_path):
+def simulate_rename(old_dir_path, new_dir_path, output_file_path):
     dry_run_dir = CONFIG_VALUES.get('dry_run_dir')
-    long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
+    
     output_dir = CONFIG_VALUES.get('output_dir')
     date_str = CONFIG_VALUES.get('date_str')
     
-    logging.info(f"dry_run_dir: {dry_run_dir} | long_dir_path_modified_output: {long_dir_path_modified_output} | output_dir: {output_dir} | date_str: {date_str}")
+    logging.info(f"dry_run_dir: {dry_run_dir} | output_file_path: {output_file_path} | output_dir: {output_dir} | date_str: {date_str}")
     logging.info(f"Dry Run: Simulating rename of '{old_dir_path}' to '{new_dir_path}'")
-    write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
+    write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{output_file_path}_{date_str}.csv', [old_dir_path, new_dir_path])
 
 
 def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=True):
@@ -252,7 +258,8 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
         
         # Try to rename
         if dry_run:
-            simulate_rename(old_dir_path, new_dir_path)
+            long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
+            simulate_rename(old_dir_path, new_dir_path, long_dir_path_modified_output)
         else:
             new_dir_path = rename_dir(old_dir_path, new_dir_path)
             logging.info(f"Renamed folder to: {new_dir_path}")
@@ -312,9 +319,9 @@ def rename_dir(old_dir_path, new_dir_path):
 
 def handle_long_filename(file_path, long_filename_list_file):
     """ Checks if a filename exceeds a specified length and logs it if it does. """
-    file_length_threshold = CONFIG_VALUES.get('file_length_threshold')
+    filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
     
-    if len(os.path.basename(file_path)) >= file_length_threshold:
+    if len(os.path.basename(file_path)) >= filename_length_threshold:
         logging.info(f"Found long filename: {os.path.basename(file_path)}")
         write_to_file(long_filename_list_file, file_path)
 
@@ -338,7 +345,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
     Scans a directory for files with long paths or filenames.
 
     This function recursively scans all files in a directory and its subdirectories. 
-    If it finds a file with a path length >= `dir_length_threshold` or a filename length >= to `file_length_threshold`, 
+    If it finds a file with a path length >= `dir_length_threshold` or a filename length >= to `filename_length_threshold`, 
     it logs the file and writes its path to a specified file.
     """
     base_dir = os.path.abspath(base_dir)
@@ -350,7 +357,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
     else:
         long_base_dir = base_dir
         
-    file_length_threshold = CONFIG_VALUES.get('file_length_threshold')
+    filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
     dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
     scan_entry_threshold = CONFIG_VALUES.get('scan_entry_threshold')
     output_dir = CONFIG_VALUES.get('output_dir')
@@ -368,7 +375,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
             logging.info(f"Checking file: {entry.name}")
             logging.info(f"Filename length: {len(entry.name)}")
                 
-            if len(os.path.basename(file_path)) >= file_length_threshold:
+            if len(os.path.basename(file_path)) >= filename_length_threshold:
                 if counters['filename_counter'] >= scan_entry_threshold:
                     counters['filename_file_part'] += 1
                     counters['filename_counter'] = 0
@@ -429,10 +436,12 @@ def process_dir_or_filename(process_type):
                 path = line.strip()
                 if process_type == 'dir':
                     print(f"Processing directory: {path}")
-                    shorten_long_dir(path, dictionary_path, len(path), dry_run=True)
+                    dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
+                    shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run=True)
                 else:
                     print(f"Processing file: {path}")
-                    shorten_long_filename(path, dictionary_path, len(path), dry_run=True)
+                    filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
+                    shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run=True)
 
 def main():
     parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
@@ -440,7 +449,7 @@ def main():
     args = parser.parse_args()
 
     print(f"Base directory: {CONFIG_VALUES.get('base_dir')}")
-    print(f"File length threshold: {CONFIG_VALUES.get('file_length_threshold')}")
+    print(f"Filename length threshold: {CONFIG_VALUES.get('filename_length_threshold')}")
     print(f"Directory length threshold: {CONFIG_VALUES.get('dir_length_threshold')}")
     
     if args.process == 'scan':
