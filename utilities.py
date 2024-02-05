@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import csv
 
 def check_file_hash_and_attributes(file_path, new_file_path):
     """Check the hash value and file attributes of the original and copied files."""
@@ -72,6 +73,11 @@ def get_file_hash(file_path):
             file_hash.update(chunk)
             chunk = f.read(8192)
     return file_hash.hexdigest()
+
+def write_to_csv(file_path, row):
+    with open(file_path, 'a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(row)
 
 def write_to_file(file, content):
     try:

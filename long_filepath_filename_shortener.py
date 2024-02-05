@@ -6,7 +6,7 @@ import configparser
 import re
 import sys
 
-from utilities import check_long_path_support, write_to_file
+from utilities import check_long_path_support, write_to_csv, write_to_file
 from datetime import datetime
 
 # TODO
@@ -22,12 +22,14 @@ from datetime import datetime
 
 def initConfigValues():
     """ Initialize the configuration values from the config.ini file. """
-    global config, log_dir, output_dir, LONG_DIR_PATH_SCAN_OUTPUT, LONG_FILENAME_SCAN_OUTPUT, NUMBER_OF_RETRY, FILE_LENGTH_THRESHOLD, DIR_LENGTH_THRESHOLD, SCAN_ENTRY_THRESHOLD
-    global date_str
+    global config, log_dir, date_str, BASE_DIR, OUTPUT_DIR
+    global LONG_DIR_PATH_SCAN_OUTPUT, LONG_FILENAME_SCAN_OUTPUT, NUMBER_OF_RETRY
+    global FILE_LENGTH_THRESHOLD, DIR_LENGTH_THRESHOLD, SCAN_ENTRY_THRESHOLD
     config = configparser.ConfigParser()
     config.read('config/config.ini')
     log_dir = config.get('DEFAULT', 'log_dir')
-    output_dir = config.get('DEFAULT', 'output_dir')
+    BASE_DIR = config.get('DEFAULT', 'base_dir')
+    OUTPUT_DIR = config.get('DEFAULT', 'output_dir')
     date_str = datetime.now().strftime('%Y%m%d')
     
     LONG_DIR_PATH_SCAN_OUTPUT = config.get('DEFAULT', 'long_dir_path_scan_output')
@@ -56,7 +58,6 @@ def initConfigValues():
     except (ValueError, TypeError):
         logging.warning(f"Invalid 'scan_entry_threshold' value: {SCAN_ENTRY_THRESHOLD}. Using default value of 1000.")
         SCAN_ENTRY_THRESHOLD = 1000
-        
     
     
     # Configure logging
@@ -66,7 +67,7 @@ def initConfigValues():
     logging.info(f"Directory length threshold: {DIR_LENGTH_THRESHOLD}")
     logging.info(f"Number of retry: {NUMBER_OF_RETRY}")
     logging.info(f"Log directory: {log_dir}")
-    logging.info(f"Output directory: {output_dir}")
+    logging.info(f"Output directory: {OUTPUT_DIR}")
     logging.info(f"Long directory path scan output: {LONG_DIR_PATH_SCAN_OUTPUT}")
     logging.info(f"Long filename scan output: {LONG_FILENAME_SCAN_OUTPUT}")
 
@@ -243,7 +244,7 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     
     logging.info(f"Renaming file to: {new_file_path}")
     print(f"Renaming file to: {new_file_path}")
-    rename_filename(file_path, new_file_path, output_dir)
+    rename_filename(file_path, new_file_path, OUTPUT_DIR)
 
 
 def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold):
@@ -312,36 +313,37 @@ def rename_dir(old_dir_path, new_dir_path):
     new_dir_path (str): The new path for the directory.
     """
     
-    try:
-        number_of_retry = int(config.get('DEFAULT', 'number_of_retry'))
-    except (ValueError, TypeError):
-        logging.warning(f"Invalid 'number_of_retry' value: {number_of_retry}. Using default value of 5.")
-        number_of_retry = 5
+    long_dir_path_modified_output = config.get('DEFAULT', 'long_dir_path_modified_output')
+    long_dir_path_modified_error = config.get('DEFAULT', 'long_dir_path_modified_error')
     
     try:
         os.rename(old_dir_path, new_dir_path)
+        logging.info(f"Renamed folder to: {new_dir_path}")
+        write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
         return new_dir_path
-    except FileExistsError:
+    except FileExistsError as e:
         logging.warning(f"Directory already exists: {new_dir_path}")
         
         # A directory with the new name already exists, so append a number to the new name
-        i = 1
-        while i <= number_of_retry:
-            try:
-                logging.warning(f"Retrying rename with new name: {new_dir_path}_{i}")
+        for i in range(1, NUMBER_OF_RETRY + 1):
+            try: 
+                new_dir_path_retry = f"{new_dir_path}_{i}"
+                os.rename(old_dir_path, new_dir_path_retry)
                 
-                new_dir_path = f"{new_dir_path}_{i}"
-                
-                os.rename(old_dir_path, new_dir_path)
-                logging.info(f"Renamed '{old_dir_path}' to '{new_dir_path}'")
+                logging.info(f"Renamed '{old_dir_path}' to '{new_dir_path_retry}'")
                 print(f"Renamed '{old_dir_path}' to '{new_dir_path}'")
-                return new_dir_path
+                write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path_retry])
+                return new_dir_path_retry
             except FileExistsError:
-                i += 1
-        logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}' after {number_of_retry} attempts")
-    except OSError or Exception as e:
+                continue
+                
+        logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}' after {NUMBER_OF_RETRY} attempts")
+        write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_error}_{date_str}.csv', [new_dir_path, "Failed to rename after multiple attempts"])
+    except (OSError, PermissionError, Exception) as e:
             logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}': {e}")
             print(f"Failed to rename '{old_dir_path}' to '{new_dir_path}': {e}")
+            
+            write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_error}_{date_str}.csv', [new_dir_path, str(e)])
             return None
 
 
@@ -397,7 +399,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     counters['filename_file_part'] += 1
                     counters['filename_counter'] = 0
                 counters['filename_counter'] += 1
-                with open(f'{output_dir}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
+                with open(f'{OUTPUT_DIR}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
                     logging.info(f"Found long filename: {os.path.basename(file_path)}")
                     write_to_file(long_filename_list_file, file_path)
 
@@ -406,7 +408,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     counters['dir_file_part'] += 1
                     counters['dir_counter'] = 0
                 counters['dir_counter'] += 1
-                with open(f'{output_dir}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
+                with open(f'{OUTPUT_DIR}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
                     logging.info(f"Found long directories path: {file_path}")
                     write_to_file(long_file_path_list_file, file_path)
                 
@@ -416,21 +418,18 @@ def scan_long_paths_and_long_filename(base_dir, counters):
 
 def main():
     initConfigValues()
-    
-    # Load the configuration from the .ini file
-    base_dir = config.get('DEFAULT', 'base_dir')
-    
-    print(f"Base directory: {base_dir}")
+
+    print(f"Base directory: {BASE_DIR}")
     print(f"File length threshold: {FILE_LENGTH_THRESHOLD}")
     print(f"Directory length threshold: {DIR_LENGTH_THRESHOLD}")
     
     # Scan base_dir for long paths and operate on them -- Run this after creating long paths and long files
-    if check_long_path_support(base_dir) is True:
+    if check_long_path_support(BASE_DIR) is True:
         logging.info("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
     else:
         logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
         counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
-        scan_long_paths_and_long_filename(base_dir, counters)
+        scan_long_paths_and_long_filename(BASE_DIR, counters)
 
 if __name__ == "__main__":
     main()
