@@ -6,76 +6,63 @@ import logging
 import csv
 import configparser
 import re
-import sys
 
 from utilities import check_long_path_support, write_to_csv, write_to_file
 from datetime import datetime
 
-# TODO
-# 1. Batching output for the scan_long_paths_and_long_filename function
-# 2. Create a function to simulate the shortening process on the long paths and long filenames
-# 3. Add a function to handle initialization of the shortening process. 
-# 3.1 User will start the shortening process by using the -p flag, -p dir or -p file
-# 3.2 If the user uses the -p dir flag, the script will check for the long_dir_path_scan_output file and start the shortening process on the path listed in the file
-# 3.3 If the user uses the -p file flag, the script will check for the long_filename_scan_output file and start the shortening process on the path listed in the file
-# 3.4 If the user uses the -test flag together with either -p dir or -p file, then the script should call the simulation function 
-#       to simulate the shortening process
+def get_int_config_value(config, key, default):
+    """ Get an integer configuration value. """
+    try:
+        return int(config.get('DEFAULT', key))
+    except ValueError:
+        logging.warning(f"Invalid '{key}' value. Using default value of {default}.")
+        return default
+    except TypeError:
+        logging.error(f"Missing '{key}' value. Using default value of {default}.")
+        return default
 
-
-def initConfigValues():
-    """ Initialize the configuration values from the config.ini file. """
-    global config, log_dir, date_str, BASE_DIR, OUTPUT_DIR, DIR_SCAN_DIR, FILENAME_SCAN_DIR
-    global LONG_DIR_PATH_SCAN_OUTPUT, LONG_FILENAME_SCAN_OUTPUT, NUMBER_OF_RETRY
-    global FILE_LENGTH_THRESHOLD, DIR_LENGTH_THRESHOLD, SCAN_ENTRY_THRESHOLD
+# Global variables
+def read_config_values():
+    """ Read the configuration values from the config.ini file. """
     config = configparser.ConfigParser()
     config.read('config/config.ini')
-    log_dir = config.get('DEFAULT', 'log_dir')
-    BASE_DIR = config.get('DEFAULT', 'base_dir')
-    OUTPUT_DIR = config.get('DEFAULT', 'output_dir')
-    DIR_SCAN_DIR = config.get('DEFAULT', 'dir_scan_dir')
-    FILENAME_SCAN_DIR = config.get('DEFAULT', 'filename_scan_dir')
-    
-    date_str = datetime.now().strftime('%Y%m%d')
-    
-    LONG_DIR_PATH_SCAN_OUTPUT = config.get('DEFAULT', 'long_dir_path_scan_output')
-    LONG_FILENAME_SCAN_OUTPUT = config.get('DEFAULT', 'long_filename_scan_output')
-    
-    try:
-        NUMBER_OF_RETRY = int(config.get('DEFAULT', 'number_of_retry'))
-    except (ValueError, TypeError):
-        logging.warning(f"Invalid 'number_of_retry' value: {NUMBER_OF_RETRY}. Using default value of 5.")
-        NUMBER_OF_RETRY = 5
-    
-    try:
-        FILE_LENGTH_THRESHOLD = int(config.get('DEFAULT', 'file_length_threshold'))
-    except (ValueError, TypeError):
-        logging.warning(f"Invalid 'file_length_threshold' value: {FILE_LENGTH_THRESHOLD}. Using default value of 200.")
-        FILE_LENGTH_THRESHOLD = 200
-    
-    try:
-        DIR_LENGTH_THRESHOLD = int(config.get('DEFAULT', 'dir_length_threshold'))
-    except (ValueError, TypeError):
-        logging.warning(f"Invalid 'dir_length_threshold' value: {DIR_LENGTH_THRESHOLD}. Using default value of 200.")
-        DIR_LENGTH_THRESHOLD = 200
-    
-    try:
-        SCAN_ENTRY_THRESHOLD = int(config.get('DEFAULT', 'scan_entry_threshold'))
-    except (ValueError, TypeError):
-        logging.warning(f"Invalid 'scan_entry_threshold' value: {SCAN_ENTRY_THRESHOLD}. Using default value of 1000.")
-        SCAN_ENTRY_THRESHOLD = 1000
+
+    config_values = {
+        'base_dir': config.get('DEFAULT', 'base_dir'),
+        'config_dir': config.get('DEFAULT', 'config_dir'),
+        'log_dir': config.get('DEFAULT', 'log_dir'),
+        'output_dir': config.get('DEFAULT', 'output_dir'),
+        'dir_scan_dir': config.get('DEFAULT', 'dir_scan_dir'),
+        'filename_scan_dir': config.get('DEFAULT', 'filename_scan_dir'),
+        'file_length_threshold': get_int_config_value(config, 'file_length_threshold', 200),
+        'dir_length_threshold': get_int_config_value(config, 'dir_length_threshold', 200),
+        'scan_entry_threshold': get_int_config_value(config, 'scan_entry_threshold', 1000),
+        'number_of_retry': get_int_config_value(config, 'number_of_retry', 5),
+        'dictionary_path': config.get('DEFAULT', 'dictionary_path'),        
+        'long_dir_path_scan_output': config.get('DEFAULT', 'long_dir_path_scan_output'),
+        'long_filename_scan_output': config.get('DEFAULT', 'long_filename_scan_output'),
+        'long_filename_modified_output': config.get('DEFAULT', 'long_filename_modified_output'),
+        'long_filename_modified_error': config.get('DEFAULT', 'long_filename_modified_error'),
+        'long_dir_path_modified_output': config.get('DEFAULT', 'long_dir_path_modified_output'),
+        'long_dir_path_modified_error': config.get('DEFAULT', 'long_dir_path_modified_error'),
+        'dry_run': config.get('DEFAULT', 'dry_run'),
+        'dry_run_dir': config.get('DEFAULT', 'dry_run_dir'),
+        'date_str': datetime.now().strftime('%Y%m%d')
+    }
     
     
-    # Configure logging
+
+    return config_values
+
+CONFIG_VALUES = read_config_values()
+
+def configure_logging(log_dir):
+    """ Configure logging. """
+    date_str = CONFIG_VALUES.get('date_str')
     logging.basicConfig(filename=f'{log_dir}/shortener_log_{date_str}.log', level=logging.DEBUG)
     logging.info("Starting the long path and long filename shortener script...")
-    logging.info(f"File length threshold: {FILE_LENGTH_THRESHOLD}")
-    logging.info(f"Directory length threshold: {DIR_LENGTH_THRESHOLD}")
-    logging.info(f"Number of retry: {NUMBER_OF_RETRY}")
-    logging.info(f"Log directory: {log_dir}")
-    logging.info(f"Output directory: {OUTPUT_DIR}")
-    logging.info(f"Long directory path scan output: {LONG_DIR_PATH_SCAN_OUTPUT}")
-    logging.info(f"Long filename scan output: {LONG_FILENAME_SCAN_OUTPUT}")
 
+configure_logging(CONFIG_VALUES.get('log_dir'))
 
 def load_dictionary(dictionary_path):
     """
@@ -83,30 +70,26 @@ def load_dictionary(dictionary_path):
 
     This function reads a CSV file where each row contains two columns: a key and a value. 
     It creates a dictionary where the keys are the values from the first column and the values are the values from the second column.
-    If the specified file does not exist or is empty, it logs an error and terminates the script.
-
-    Parameters:
-    dictionary_path (str): The path to the CSV file.
-
-    Returns:
-    dict: The dictionary loaded from the CSV file.
-
-    Raises:
-    SystemExit: If the file does not exist or is empty.
+    If the specified file does not exist or is empty, it logs an error and raises an exception.
     """
     if not os.path.isfile(dictionary_path):
-        logging.error(f"Dictionary file does not exist: {dictionary_path}. Terminating script.")
-        sys.exit(1)
+        logging.error(f"Dictionary file does not exist: {dictionary_path}.")
+        raise FileNotFoundError(f"Dictionary file does not exist: {dictionary_path}")
     
-    with open(dictionary_path, 'r') as f:
-        reader = csv.reader(f)
-        dictionary = {rows[0]:rows[1] for rows in reader}
+    try:
+        with open(dictionary_path, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            dictionary_conversion_pairs = {rows[0]:rows[1] for rows in reader}
+    except Exception as e:
+        logging.error(f"Failed to load dictionary: {str(e)}")
+        print(f"Failed to load dictionary: {str(e)}. Proceeding with an empty dictionary.")
+        dictionary = {}
     
-    if not dictionary:
-        logging.error(f"Dictionary file is empty: {dictionary_path}")
-        sys.exit(1)
+    if not dictionary_conversion_pairs:
+        logging.error(f"ERROR: Dictionary file is empty: {dictionary_path}")
+        raise ValueError(f"ERROR: Dictionary file is empty: {dictionary_path}")
     
-    return dictionary
+    return dictionary_conversion_pairs
 
 
 def break_down_filename(name):
@@ -115,12 +98,6 @@ def break_down_filename(name):
 
     This function splits a filename into components based on underscores (_) or hyphens (-), or breaks it down into separate words if it's in camelCase.
     If the filename does not contain any of these delimiters and is not in camelCase, it returns a list containing the filename as a single component.
-
-    Parameters:
-    name (str): The filename to break down.
-
-    Returns:
-    list: The components of the filename.
     """
     if '_' in name or '-' in name:
         return re.split('_|-', name)
@@ -137,13 +114,6 @@ def convert_components(components, dictionary):
     This function iterates over a list of components and replaces each component with its corresponding value in the dictionary, if it exists. 
     If a component does not exist in the dictionary, it is left unchanged. 
     If the components or dictionary are None, the function handles it gracefully.
-
-    Parameters:
-    components (list): The list of components to convert.
-    dictionary (dict): The dictionary to use for conversion.
-
-    Returns:
-    list: The list of converted components, or None if the input components was None.
     """
     
     if components is None:
@@ -161,17 +131,9 @@ def check_for_naming_conflict(file_path, new_name, ext):
     This function attempts to rename a file to `new_name` up to a specified number of times (default is 5). 
     If a file with the new name already exists, it appends a number to the end of the name and tries again. 
     If it still can't rename the file after the specified number of attempts, it logs an error and returns None.
-
-    Parameters:
-    file_path (str): The original path of the file to be renamed.
-    new_name (str): The new name for the file, without the extension.
-    ext (str): The file extension.
-
-    Returns:
-    str: The new file path if the file was successfully renamed, or None if it wasn't.
     """
     
-    for i in range(NUMBER_OF_RETRY):
+    for i in range(CONFIG_VALUES.get('number_of_retry')):
         new_file_path = os.path.join(os.path.dirname(file_path), new_name)
         if not os.path.exists(new_file_path):
             return new_file_path
@@ -181,23 +143,19 @@ def check_for_naming_conflict(file_path, new_name, ext):
     return None
 
 
-def rename_filename(file_path, new_file_path, output_dir):
+def rename_filename(file_path, new_file_path):
     """
     Renames a file and logs the operation.
 
     This function attempts to rename a file from `file_path` to `new_file_path`. 
     If the operation is successful, it logs the new file path and writes the old and new file paths to a CSV file. 
     If the operation fails due to the file not being found or a permission error, it logs the error and writes the old file path and the error to a CSV file.
-
-    Parameters:
-    file_path (str): The original path of the file to be renamed.
-    new_file_path (str): The new path for the file.
-    output_dir (str): The directory where the CSV log files are stored.
-
     """
     
-    long_filename_modified_output = config.get('DEFAULT', 'long_filename_modified_output')
-    long_filename_modified_error = config.get('DEFAULT', 'long_filename_modified_error')
+    long_filename_modified_output = CONFIG_VALUES.get('long_filename_modified_output')
+    long_filename_modified_error = CONFIG_VALUES.get('long_filename_modified_error')
+    date_str = CONFIG_VALUES.get('date_str')
+    output_dir = CONFIG_VALUES.get('output_dir')
     
     try:
         os.rename(file_path, new_file_path)
@@ -220,12 +178,6 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     and then joins the components back together to form a new filename. 
     If a naming conflict occurs, it tries to resolve the conflict by appending a number to the filename. 
     If the new filename is still too long after conversion, it logs an error and does not rename the file.
-
-    Parameters:
-    file_path (str): The original path of the file to be renamed.
-    dictionary_path (str): The path to the CSV file containing the dictionary for conversion.
-    file_length (int): The maximum allowed length for the new filename.
-
     """
     logging.info(f"Processing file: {file_path}")
     
@@ -249,7 +201,7 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     
     logging.info(f"Renaming file to: {new_file_path}")
     print(f"Renaming file to: {new_file_path}")
-    rename_filename(file_path, new_file_path, OUTPUT_DIR)
+    rename_filename(file_path, new_file_path)
 
 
 def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=True):
@@ -260,12 +212,6 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
     and then joins the components back together to form a new directory path. 
     If a naming conflict occurs, it tries to resolve the conflict by appending a number to the directory name. 
     If the new directory path is still too long after conversion, it logs an error and does not rename the directory.
-
-    Parameters:
-    dir_path (str): The original path of the directory to be renamed.
-    dictionary_path (str): The path to the CSV file containing the dictionary for conversion.
-    dir_length (int): The maximum allowed length for the new directory path.
-
     """
     logging.info(f"Processing directory shorten process on: {dir_path} | dir_length_threshold: {dir_length_threshold}")
     print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
@@ -297,11 +243,15 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
         
         # Try to rename
         if dry_run:
-            dry_run_dir = config.get('DEFAULT', 'dry_run_dir')
-            long_dir_path_modified_output = config.get('DEFAULT', 'long_dir_path_modified_output')
+            dry_run_dir = CONFIG_VALUES.get('dry_run_dir')
+            long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
+            output_dir = CONFIG_VALUES.get('output_dir')
+            date_str = CONFIG_VALUES.get('date_str')
+            
+            print(f"dry_run_dir: {dry_run_dir} | long_dir_path_modified_output: {long_dir_path_modified_output} | output_dir: {output_dir} | date_str: {date_str}")
             
             logging.info(f"Dry Run: Simulating rename of '{old_dir_path}' to '{new_dir_path}'")
-            write_to_csv(f'{OUTPUT_DIR}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
+            write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
         else:
             new_dir_path = rename_dir(old_dir_path, new_dir_path)
         
@@ -319,49 +269,50 @@ def rename_dir(old_dir_path, new_dir_path):
 
     This function renames a directory from `old_dir_path` to `new_dir_path`. 
     If a directory with the new name already exists, it appends a number to the new name to avoid a naming conflict.
-
-    Parameters:
-    old_dir_path (str): The original path of the directory to be renamed.
-    new_dir_path (str): The new path for the directory.
     """
     
-    long_dir_path_modified_output = config.get('DEFAULT', 'long_dir_path_modified_output')
-    long_dir_path_modified_error = config.get('DEFAULT', 'long_dir_path_modified_error')
+    long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
+    long_dir_path_modified_error = CONFIG_VALUES.get('long_dir_path_modified_error')
+    output_dir = CONFIG_VALUES.get('output_dir')
+    date_str = CONFIG_VALUES.get('date_str')
+    number_of_retry = CONFIG_VALUES.get('number_of_retry')
     
     try:
         os.rename(old_dir_path, new_dir_path)
         logging.info(f"Renamed folder to: {new_dir_path}")
-        write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
+        write_to_csv(f'{output_dir}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
         return new_dir_path
     except FileExistsError as e:
         logging.warning(f"Directory already exists: {new_dir_path}")
         
         # A directory with the new name already exists, so append a number to the new name
-        for i in range(1, NUMBER_OF_RETRY + 1):
+        for i in range(1, number_of_retry + 1):
             try: 
                 new_dir_path_retry = f"{new_dir_path}_{i}"
                 os.rename(old_dir_path, new_dir_path_retry)
                 
                 logging.info(f"Renamed '{old_dir_path}' to '{new_dir_path_retry}'")
                 print(f"Renamed '{old_dir_path}' to '{new_dir_path}'")
-                write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path_retry])
+                write_to_csv(f'{output_dir}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path_retry])
                 return new_dir_path_retry
             except FileExistsError:
                 continue
                 
-        logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}' after {NUMBER_OF_RETRY} attempts")
-        write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_error}_{date_str}.csv', [new_dir_path, "Failed to rename after multiple attempts"])
+        logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}' after {number_of_retry} attempts")
+        write_to_csv(f'{output_dir}/{long_dir_path_modified_error}_{date_str}.csv', [new_dir_path, "Failed to rename after multiple attempts"])
     except (OSError, PermissionError, Exception) as e:
             logging.error(f"Failed to rename '{old_dir_path}' to '{new_dir_path}': {e}")
             print(f"Failed to rename '{old_dir_path}' to '{new_dir_path}': {e}")
             
-            write_to_csv(f'{OUTPUT_DIR}/{long_dir_path_modified_error}_{date_str}.csv', [new_dir_path, str(e)])
+            write_to_csv(f'{output_dir}/{long_dir_path_modified_error}_{date_str}.csv', [new_dir_path, str(e)])
             return None
 
 
 def handle_long_filename(file_path, long_filename_list_file):
     """ Checks if a filename exceeds a specified length and logs it if it does. """
-    if len(os.path.basename(file_path)) >= FILE_LENGTH_THRESHOLD:
+    file_length_threshold = CONFIG_VALUES.get('file_length_threshold')
+    
+    if len(os.path.basename(file_path)) >= file_length_threshold:
         logging.info(f"Found long filename: {os.path.basename(file_path)}")
         write_to_file(long_filename_list_file, file_path)
 
@@ -373,7 +324,9 @@ def handle_long_dir_path(file_path, long_file_path_list_file):
     print(f"Dirname: {os.path.dirname(file_path)}")
     print(f"Dirname length: {len(os.path.dirname(file_path))}")
     
-    if len(os.path.dirname(file_path)) >= DIR_LENGTH_THRESHOLD:
+    dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
+    
+    if len(os.path.dirname(file_path)) >= dir_length_threshold:
         logging.info(f"Found long directories path: {file_path}")
         write_to_file(long_file_path_list_file, file_path)
 
@@ -385,9 +338,6 @@ def scan_long_paths_and_long_filename(base_dir, counters):
     This function recursively scans all files in a directory and its subdirectories. 
     If it finds a file with a path length >= `dir_length_threshold` or a filename length >= to `file_length_threshold`, 
     it logs the file and writes its path to a specified file.
-
-    Parameters:
-    base_dir (str): The directory to scan.
     """
     base_dir = os.path.abspath(base_dir)
     print(f"Scanning base directory: {base_dir}")
@@ -397,6 +347,16 @@ def scan_long_paths_and_long_filename(base_dir, counters):
         print(f"Modified base directory: {long_base_dir}")
     else:
         long_base_dir = base_dir
+        
+    file_length_threshold = CONFIG_VALUES.get('file_length_threshold')
+    dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
+    scan_entry_threshold = CONFIG_VALUES.get('scan_entry_threshold')
+    output_dir = CONFIG_VALUES.get('output_dir')
+    filename_scan_dir = CONFIG_VALUES.get('filename_scan_dir')
+    long_filename_scan_output = CONFIG_VALUES.get('long_filename_scan_output')
+    dir_scan_dir = CONFIG_VALUES.get('dir_scan_dir')
+    long_dir_path_scan_output = CONFIG_VALUES.get('long_dir_path_scan_output')
+    date_str = CONFIG_VALUES.get('date_str')
 
     for entry in os.scandir(long_base_dir):
         if entry.is_file():
@@ -406,21 +366,21 @@ def scan_long_paths_and_long_filename(base_dir, counters):
             logging.info(f"Checking file: {entry.name}")
             logging.info(f"Filename length: {len(entry.name)}")
                 
-            if len(os.path.basename(file_path)) >= FILE_LENGTH_THRESHOLD:
-                if counters['filename_counter'] >= SCAN_ENTRY_THRESHOLD:
+            if len(os.path.basename(file_path)) >= file_length_threshold:
+                if counters['filename_counter'] >= scan_entry_threshold:
                     counters['filename_file_part'] += 1
                     counters['filename_counter'] = 0
                 counters['filename_counter'] += 1
-                with open(f'{OUTPUT_DIR}/{FILENAME_SCAN_DIR}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
+                with open(f'{output_dir}/{filename_scan_dir}/{long_filename_scan_output}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
                     logging.info(f"Found long filename: {os.path.basename(file_path)}")
                     write_to_file(long_filename_list_file, file_path)
 
-            if len(os.path.dirname(file_path)) >= DIR_LENGTH_THRESHOLD:
-                if counters['dir_counter'] >= SCAN_ENTRY_THRESHOLD:
+            if len(os.path.dirname(file_path)) >= dir_length_threshold:
+                if counters['dir_counter'] >= scan_entry_threshold:
                     counters['dir_file_part'] += 1
                     counters['dir_counter'] = 0
                 counters['dir_counter'] += 1
-                with open(f'{OUTPUT_DIR}/{DIR_SCAN_DIR}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
+                with open(f'{output_dir}/{dir_scan_dir}/{long_dir_path_scan_output}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
                     logging.info(f"Found long directories path: {file_path}")
                     write_to_file(long_file_path_list_file, file_path)
                 
@@ -435,22 +395,31 @@ def process_scan():
     This function checks if long path support is enabled. If it is enabled, it logs a message to disable it.
     If long path support is disabled, it scans for long paths and long filenames using the BASE_DIR as the starting point.
     """
-    if check_long_path_support(BASE_DIR) is True:
+    base_dir = CONFIG_VALUES.get('base_dir')
+    
+    if check_long_path_support(base_dir) is True:
         logging.info("Long path support is enabled. Please disable it by setting the registry key LongPathsEnabled to 0 to simulate long path errors.")
     else:
         logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
         counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
-        scan_long_paths_and_long_filename(BASE_DIR, counters)
+        scan_long_paths_and_long_filename(base_dir, counters)
+
 
 def process_dir_or_filename(process_type):
     """
     Process directory or filename based on the given process_type.
     """
-    config_dir = config.get('DEFAULT', 'config')
-    dictionary_path = os.path.join(config_dir, config.get('DEFAULT', 'dictionary_path'))
+    config_dir = CONFIG_VALUES.get('config_dir')
+    dictionary_path = os.path.join(config_dir, CONFIG_VALUES.get('dictionary_path'))
+    base_dir = CONFIG_VALUES.get('base_dir')
+    dir_scan_dir = CONFIG_VALUES.get('dir_scan_dir')
+    filename_scan_dir = CONFIG_VALUES.get('filename_scan_dir')
+    long_dir_path_scan_output = CONFIG_VALUES.get('long_dir_path_scan_output')
+    long_filename_scan_output = CONFIG_VALUES.get('long_filename_scan_output')
+    date_str = CONFIG_VALUES.get('date_str')
     
-    scan_dir = os.path.join(BASE_DIR, DIR_SCAN_DIR if process_type == 'dir' else FILENAME_SCAN_DIR)
-    file_pattern = f"{LONG_DIR_PATH_SCAN_OUTPUT if process_type == 'dir' else LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part*"
+    scan_dir = os.path.join(base_dir, dir_scan_dir if process_type == 'dir' else filename_scan_dir)
+    file_pattern = f"{long_dir_path_scan_output if process_type == 'dir' else long_filename_scan_output}_{date_str}_part*"
 
     for file_path in glob.glob(os.path.join(scan_dir, file_pattern)):
         with open(file_path, 'r') as f:
@@ -468,11 +437,9 @@ def main():
     parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='scan', help='Specify whether to process directories, filenames, or perform a scan.')
     args = parser.parse_args()
 
-    initConfigValues()
-
-    print(f"Base directory: {BASE_DIR}")
-    print(f"File length threshold: {FILE_LENGTH_THRESHOLD}")
-    print(f"Directory length threshold: {DIR_LENGTH_THRESHOLD}")
+    print(f"Base directory: {CONFIG_VALUES.get('base_dir')}")
+    print(f"File length threshold: {CONFIG_VALUES.get('file_length_threshold')}")
+    print(f"Directory length threshold: {CONFIG_VALUES.get('dir_length_threshold')}")
     
     if args.process == 'scan':
         process_scan()

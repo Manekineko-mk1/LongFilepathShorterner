@@ -10,12 +10,10 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from long_filepath_filename_shortener import initConfigValues, shorten_long_dir, shorten_long_filename
+from long_filepath_filename_shortener import read_config_values, shorten_long_dir, shorten_long_filename
 
 class TestShortenLongDir(unittest.TestCase):
     def setUp(self):
-        initConfigValues()
-        
         # Create a temporary directory for testing
         self.test_dir = os.path.join(os.getcwd(), 'test', 'test_dir')
         os.makedirs(self.test_dir, exist_ok=True)
@@ -32,7 +30,6 @@ class TestShortenLongDir(unittest.TestCase):
             f.write("production,prod\n")
             f.write("version,ver\n")
     
-        
     def tearDown(self):
         # Remove the temporary directory after testing
         shutil.rmtree(self.test_dir)
@@ -127,14 +124,15 @@ class TestShortenLongDir(unittest.TestCase):
         print(f"Test status for file: {os.path.exists(new_filename)}")
 
         # Check if the CSV file contains the expected changed paths
-        config = configparser.ConfigParser()
-        config.read('config/config.ini')
-        dry_run_dir = config.get('DEFAULT', 'dry_run_dir')
-        long_dir_path_modified_output = config.get('DEFAULT', 'long_dir_path_modified_output')
-        date_str = datetime.now().strftime("%Y%m%d")
-        OUTPUT_DIR = config.get('DEFAULT', 'output_dir')
+        config_values = read_config_values()     
+        print("Configuration values:", config_values)
         
-        csv_file_path = f'{OUTPUT_DIR}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv'
+        dry_run_dir = config_values['dry_run_dir']
+        long_dir_path_modified_output = config_values['long_dir_path_modified_output']
+        date_str = config_values['date_str']
+        output_dir = config_values['output_dir']
+        
+        csv_file_path = f'{output_dir}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv'
         with open(csv_file_path, 'r') as f:
             reader = csv.reader(f)
             expected_rows = [
@@ -143,7 +141,6 @@ class TestShortenLongDir(unittest.TestCase):
             ]
             for row, expected_row in zip(reader, expected_rows):
                 self.assertEqual(row, expected_row)
-
 
 
 if __name__ == "__main__":
