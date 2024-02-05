@@ -1,4 +1,6 @@
+import argparse
 import datetime
+import glob
 import os
 import logging
 import csv
@@ -22,7 +24,7 @@ from datetime import datetime
 
 def initConfigValues():
     """ Initialize the configuration values from the config.ini file. """
-    global config, log_dir, date_str, BASE_DIR, OUTPUT_DIR
+    global config, log_dir, date_str, BASE_DIR, OUTPUT_DIR, DIR_SCAN_DIR, FILENAME_SCAN_DIR
     global LONG_DIR_PATH_SCAN_OUTPUT, LONG_FILENAME_SCAN_OUTPUT, NUMBER_OF_RETRY
     global FILE_LENGTH_THRESHOLD, DIR_LENGTH_THRESHOLD, SCAN_ENTRY_THRESHOLD
     config = configparser.ConfigParser()
@@ -30,6 +32,9 @@ def initConfigValues():
     log_dir = config.get('DEFAULT', 'log_dir')
     BASE_DIR = config.get('DEFAULT', 'base_dir')
     OUTPUT_DIR = config.get('DEFAULT', 'output_dir')
+    DIR_SCAN_DIR = config.get('DEFAULT', 'dir_scan_dir')
+    FILENAME_SCAN_DIR = config.get('DEFAULT', 'filename_scan_dir')
+    
     date_str = datetime.now().strftime('%Y%m%d')
     
     LONG_DIR_PATH_SCAN_OUTPUT = config.get('DEFAULT', 'long_dir_path_scan_output')
@@ -247,7 +252,7 @@ def shorten_long_filename(file_path, dictionary_path, file_length_threshold):
     rename_filename(file_path, new_file_path, OUTPUT_DIR)
 
 
-def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold):
+def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=True):
     """
     Renames a directory to a shorter name based on a provided dictionary.
 
@@ -291,8 +296,15 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold):
             continue
         
         # Try to rename
-        new_dir_path = rename_dir(old_dir_path, new_dir_path)
-         
+        if dry_run:
+            dry_run_dir = config.get('DEFAULT', 'dry_run_dir')
+            long_dir_path_modified_output = config.get('DEFAULT', 'long_dir_path_modified_output')
+            
+            logging.info(f"Dry Run: Simulating rename of '{old_dir_path}' to '{new_dir_path}'")
+            write_to_csv(f'{OUTPUT_DIR}/{dry_run_dir}/dry_run_{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
+        else:
+            new_dir_path = rename_dir(old_dir_path, new_dir_path)
+        
         if len(new_dir_path) <= dir_length_threshold:
             logging.info(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
             print(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
@@ -399,7 +411,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     counters['filename_file_part'] += 1
                     counters['filename_counter'] = 0
                 counters['filename_counter'] += 1
-                with open(f'{OUTPUT_DIR}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
+                with open(f'{OUTPUT_DIR}/{FILENAME_SCAN_DIR}/{LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
                     logging.info(f"Found long filename: {os.path.basename(file_path)}")
                     write_to_file(long_filename_list_file, file_path)
 
@@ -408,7 +420,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     counters['dir_file_part'] += 1
                     counters['dir_counter'] = 0
                 counters['dir_counter'] += 1
-                with open(f'{OUTPUT_DIR}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
+                with open(f'{OUTPUT_DIR}/{DIR_SCAN_DIR}/{LONG_DIR_PATH_SCAN_OUTPUT}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
                     logging.info(f"Found long directories path: {file_path}")
                     write_to_file(long_file_path_list_file, file_path)
                 
@@ -416,20 +428,57 @@ def scan_long_paths_and_long_filename(base_dir, counters):
             scan_long_paths_and_long_filename(entry.path, counters)
 
 
+def process_scan():
+    """
+    Process the scan for long paths and long filenames.
+
+    This function checks if long path support is enabled. If it is enabled, it logs a message to disable it.
+    If long path support is disabled, it scans for long paths and long filenames using the BASE_DIR as the starting point.
+    """
+    if check_long_path_support(BASE_DIR) is True:
+        logging.info("Long path support is enabled. Please disable it by setting the registry key LongPathsEnabled to 0 to simulate long path errors.")
+    else:
+        logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
+        counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
+        scan_long_paths_and_long_filename(BASE_DIR, counters)
+
+def process_dir_or_filename(process_type):
+    """
+    Process directory or filename based on the given process_type.
+    """
+    config_dir = config.get('DEFAULT', 'config')
+    dictionary_path = os.path.join(config_dir, config.get('DEFAULT', 'dictionary_path'))
+    
+    scan_dir = os.path.join(BASE_DIR, DIR_SCAN_DIR if process_type == 'dir' else FILENAME_SCAN_DIR)
+    file_pattern = f"{LONG_DIR_PATH_SCAN_OUTPUT if process_type == 'dir' else LONG_FILENAME_SCAN_OUTPUT}_{date_str}_part*"
+
+    for file_path in glob.glob(os.path.join(scan_dir, file_pattern)):
+        with open(file_path, 'r') as f:
+            for line in f:
+                path = line.strip()
+                if process_type == 'dir':
+                    print(f"Processing directory: {path}")
+                    shorten_long_dir(path, dictionary_path, len(path), dry_run=True)
+                else:
+                    print(f"Processing file: {path}")
+                    shorten_long_filename(path, dictionary_path, len(path), dry_run=True)
+
 def main():
+    parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
+    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='scan', help='Specify whether to process directories, filenames, or perform a scan.')
+    args = parser.parse_args()
+
     initConfigValues()
 
     print(f"Base directory: {BASE_DIR}")
     print(f"File length threshold: {FILE_LENGTH_THRESHOLD}")
     print(f"Directory length threshold: {DIR_LENGTH_THRESHOLD}")
     
-    # Scan base_dir for long paths and operate on them -- Run this after creating long paths and long files
-    if check_long_path_support(BASE_DIR) is True:
-        logging.info("Long path support is enabled. Please disable it by set the registry key LongPathsEnabled to 0 to simulate long path errors.")
+    if args.process == 'scan':
+        process_scan()
     else:
-        logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
-        counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
-        scan_long_paths_and_long_filename(BASE_DIR, counters)
+        process_dir_or_filename(args.process)
+
 
 if __name__ == "__main__":
     main()
