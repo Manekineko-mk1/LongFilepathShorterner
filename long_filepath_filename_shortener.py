@@ -417,6 +417,7 @@ def process_scan():
 def process_dir_or_filename(process_type):
     """
     Process directory or filename based on the given process_type.
+    This is the entry point for the shortening process.
     """
     config_dir = CONFIG_VALUES.get('config_dir')
     dictionary_path = os.path.join(config_dir, CONFIG_VALUES.get('dictionary_path'))
@@ -431,17 +432,20 @@ def process_dir_or_filename(process_type):
     file_pattern = f"{long_dir_path_scan_output if process_type == 'dir' else long_filename_scan_output}_{date_str}_part*"
 
     for file_path in glob.glob(os.path.join(scan_dir, file_pattern)):
-        with open(file_path, 'r') as f:
-            for line in f:
-                path = line.strip()
-                if process_type == 'dir':
-                    print(f"Processing directory: {path}")
-                    dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
-                    shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run=True)
-                else:
-                    print(f"Processing file: {path}")
-                    filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
-                    shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run=True)
+        try:
+            with open(file_path, 'r') as f:                
+                for line in f:
+                    path = line.strip()
+                    if process_type == 'dir':
+                        print(f"Processing directory: {path}")
+                        dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
+                        shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run=True)
+                    else:
+                        print(f"Processing file: {path}")
+                        filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
+                        shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run=True)
+        except OSError or Exception as e:
+            logging.error(f"Error reading file {file_path}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
