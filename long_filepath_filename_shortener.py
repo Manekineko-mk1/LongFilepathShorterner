@@ -97,13 +97,32 @@ def break_down_filename(name):
 
     This function splits a filename into components based on underscores (_) or hyphens (-), or breaks it down into separate words if it's in camelCase.
     If the filename does not contain any of these delimiters and is not in camelCase, it returns a list containing the filename as a single component.
+    
+    Example: 'myCamelCaseFile.txt' -> ['my', 'Camel', 'Case', 'File', '.txt']
+    Example: 'my-file_name.txt' -> ['my', 'file', 'name', '.txt']
     """
-    if '_' in name or '-' in name:
-        return re.split('_|-', name)
-    elif re.findall('[A-Z][^A-Z]*', name):
-        return re.findall('[A-Z][^A-Z]*', name)
-    else:
-        return [name]
+    # if '_' in name or '-' in name:
+    #     return re.split('_|-', name)
+    # elif re.findall('[A-Z][^A-Z]*', name):
+    #     return re.findall('[A-Z][^A-Z]*', name)
+    # else:
+    #     return [name]
+    
+    # Split the filename and the extension
+    name, ext = os.path.splitext(name)
+    
+    # Split at underscore and hyphen
+    parts = re.split('[-_]', name)
+    # Further split each part at camelCase boundaries
+    parts = [re.sub('([a-z])([A-Z])', r'\1 \2', part).split() for part in parts]
+    # Flatten the list of lists
+    parts = [item for sublist in parts for item in sublist]
+    
+    # Add the extension back to the list of components, if it is not empty
+    if ext:
+        parts.append(ext)
+    
+    return parts
 
 
 def convert_components(components, dictionary):

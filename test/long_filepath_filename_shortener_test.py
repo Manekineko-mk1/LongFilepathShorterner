@@ -148,6 +148,28 @@ class TestBreakDownFilename(unittest.TestCase):
         except Exception as e:
             print("Test Case 4 Passed")
         os.remove('invalid_dictionary.csv')
+    
+    def test_break_down_filename(self):
+        self.assertEqual(break_down_filename('myCamelCaseFile.txt'), ['my', 'Camel', 'Case', 'File', '.txt'])
+        self.assertEqual(break_down_filename('my-file_name.txt'), ['my', 'file', 'name', '.txt'])
+        self.assertEqual(break_down_filename('my_file-name.txt'), ['my', 'file', 'name', '.txt'])
+        self.assertEqual(break_down_filename('myFileName.txt'), ['my', 'File', 'Name', '.txt'])
+        self.assertEqual(break_down_filename('my_fileName.txt'), ['my', 'file', 'Name', '.txt'])
+        self.assertEqual(break_down_filename('my-fileName.txt'), ['my', 'file', 'Name', '.txt'])
+        self.assertEqual(break_down_filename('myFileName'), ['my', 'File', 'Name'])
+        self.assertEqual(break_down_filename('my_fileName'), ['my', 'file', 'Name'])
+        self.assertEqual(break_down_filename('my-fileName'), ['my', 'file', 'Name'])
+
+    def test_edge_cases(self):
+        self.assertEqual(break_down_filename(''), [])
+        self.assertEqual(break_down_filename('myFileName'), ['my', 'File', 'Name'])
+        self.assertEqual(break_down_filename('MYFILENAME'), ['MYFILENAME'])
+        self.assertEqual(break_down_filename('my_file_name'), ['my', 'file', 'name'])
+        self.assertEqual(break_down_filename('my-file-name'), ['my', 'file', 'name'])
+        self.assertEqual(break_down_filename('my_file-name'), ['my', 'file', 'name'])
+        self.assertEqual(break_down_filename('myFileName.txt'), ['my', 'File', 'Name', '.txt'])
+        self.assertEqual(break_down_filename('my_fileName.txt'), ['my', 'file', 'Name', '.txt'])
+        self.assertEqual(break_down_filename('my-fileName.txt'), ['my', 'file', 'Name', '.txt'])
 
 if __name__ == '__main__':
     unittest.main()
