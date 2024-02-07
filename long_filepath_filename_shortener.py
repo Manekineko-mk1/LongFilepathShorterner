@@ -101,26 +101,27 @@ def break_down_filename(name):
     Example: 'myCamelCaseFile.txt' -> ['my', 'Camel', 'Case', 'File', '.txt']
     Example: 'my-file_name.txt' -> ['my', 'file', 'name', '.txt']
     """
-    # if '_' in name or '-' in name:
-    #     return re.split('_|-', name)
-    # elif re.findall('[A-Z][^A-Z]*', name):
-    #     return re.findall('[A-Z][^A-Z]*', name)
-    # else:
-    #     return [name]
-    
+
     # Split the filename and the extension
-    name, ext = os.path.splitext(name)
+    parts = re.split('(?<![0-9])\.(?![0-9])', name)
+    name, ext = parts if len(parts) > 1 else (parts[0], '')
+    logging.info(f"Name: {name} | Extension: {ext}")
     
     # Split at underscore and hyphen
-    parts = re.split('[-_]', name)
+    parts = re.split('[-_]|(?<![0-9])\.(?![0-9])', name)
+    logging.info(f"Parts at underscore and hyphen: {parts}")
+    
     # Further split each part at camelCase boundaries
     parts = [re.sub('([a-z])([A-Z])', r'\1 \2', part).split() for part in parts]
+    logging.info(f"Parts at camelCase: {parts}")
+    
     # Flatten the list of lists
     parts = [item for sublist in parts for item in sublist]
+    logging.info(f"Flatten the list of lists: {parts}")
     
     # Add the extension back to the list of components, if it is not empty
     if ext:
-        parts.append(ext)
+        parts.append('.' + ext)
     
     return parts
 

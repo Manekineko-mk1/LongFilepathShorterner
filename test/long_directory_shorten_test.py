@@ -75,12 +75,12 @@ class TestShortenLongDir(unittest.TestCase):
         # Test case: a directory with a long nested directory name and a file with a long name are shortened
         long_dir_path = os.path.join(self.test_dir, "long_dir", "long_sub_dir")
         os.makedirs(long_dir_path, exist_ok=True)
-        long_file_path = os.path.join(long_dir_path, "project-A123_production-version-1.0.1.3.txt")
+        long_file_path = os.path.join(long_dir_path, "project-A123_production-version-camelTest-1.0.1.3.txt")
         with open(long_file_path, "w") as f:
             f.write("test content")
         
         new_dir_path = os.path.join(self.test_dir, "ld", "lsd")
-        new_filename = os.path.join(new_dir_path, "proj-A123-prod-ver-1.0.1.3.txt")
+        new_filename = os.path.join(new_dir_path, "proj-A123-prod-ver-camel-Test-1.0.1.3.txt")
         
         print(f"Expected new file name: {new_filename} | Length: {len(new_filename)}")
         print(f"Expected new directory path: {new_dir_path} | Length: {len(new_dir_path)}")
