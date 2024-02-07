@@ -101,18 +101,30 @@ def break_down_filename(name):
     Example: 'myCamelCaseFile' -> ['my', 'Camel', 'Case', 'File']
     Example: 'my-file_name' -> ['my', 'file', 'name']
     """    
-    # Split at underscore and hyphen
-    parts = re.split('[-_]', name)
-    logging.info(f"Parts at underscore and hyphen: {parts}")
-    
-    # Further split each part at camelCase boundaries
-    parts = [re.sub('([a-z])([A-Z])', r'\1 \2', part).split() for part in parts]
-    logging.info(f"Parts at camelCase: {parts}")
-    
-    # Flatten the list of lists
-    parts = [item for sublist in parts for item in sublist]
-    logging.info(f"Flatten the list of lists: {parts}")
-    
+    # Search for the position of the file extension, if it exists
+    extension_match = re.search(r'\.\w+$', name)
+    if extension_match:
+        # If an extension is found, split the name at the start of the extension
+        base_name = name[:extension_match.start()]
+        extension = [name[extension_match.start():]]  # Include the dot with the extension
+    else:
+        base_name = name
+        extension = []
+
+    # Split at underscore, hyphen, and preserve digit-based decimals
+    parts = re.split(r'(?<!\d)[_.](?!\d)|(?<=\d)[_.](?!\d)|[-_]', base_name)
+
+    # Split camelCase in each part and avoid splitting in digit sequences
+    def split_camel_case(s):
+        return re.sub('([a-z])([A-Z])', r'\1 \2', s).split()
+
+    parts = [split_camel_case(part) for part in parts]
+    parts = [item for sublist in parts for item in sublist]  # Flatten the list
+
+    # Append extension if present
+    if extension:
+        parts += extension
+
     return parts
 
 
@@ -133,7 +145,7 @@ def convert_components(components, dictionary):
     return [dictionary.get(component, component) for component in components]
 
 
-def check_for_naming_conflict(file_path, new_name, ext):
+def check_for_naming_conflict(file_path, new_name):
     """
     Checks for naming conflicts when renaming a file.
 
@@ -141,6 +153,7 @@ def check_for_naming_conflict(file_path, new_name, ext):
     If a file with the new name already exists, it appends a number to the end of the name and tries again. 
     If it still can't rename the file after the specified number of attempts, it logs an error and returns None.
     """
+    name, ext = os.path.splitext(new_name)
     
     for i in range(CONFIG_VALUES.get('number_of_retry')):
         new_file_path = os.path.join(os.path.dirname(file_path), new_name)
@@ -196,15 +209,15 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     filename = os.path.basename(file_path)
     name, ext = os.path.splitext(filename)
     
-    components = break_down_filename(name)
+    components = break_down_filename(filename)
     new_components = convert_components(components, dictionary)
-    new_name = '-'.join(new_components) + ext
+    new_name = '-'.join(new_components[:-1]) + ext
     
     if len(new_name) > filename_length_threshold:
         logging.error(f"New filename is too long: {new_name}")
         return None
     
-    new_file_path = check_for_naming_conflict(file_path, new_name, ext)
+    new_file_path = check_for_naming_conflict(file_path, new_name)
     if new_file_path is None:
         logging.error(f"Could not resolve naming conflict for file: {file_path}")
         return None

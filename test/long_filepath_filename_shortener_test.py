@@ -153,6 +153,8 @@ class TestBreakDownFilename(unittest.TestCase):
         self.assertEqual(break_down_filename('myCamelCaseFile.txt'), ['my', 'Camel', 'Case', 'File', '.txt'])
         self.assertEqual(break_down_filename('my-file_name.txt'), ['my', 'file', 'name', '.txt'])
         self.assertEqual(break_down_filename('my_file-name.txt'), ['my', 'file', 'name', '.txt'])
+        self.assertEqual(break_down_filename('my_file-name-camelCase.txt'), ['my', 'file', 'name', 'camel', 'Case', '.txt'])
+        self.assertEqual(break_down_filename('my_file-name_ver_3.14-camelCase.txt'), ['my', 'file', 'name', 'ver', '3.14', 'camel', 'Case', '.txt'])
         self.assertEqual(break_down_filename('myFileName.txt'), ['my', 'File', 'Name', '.txt'])
         self.assertEqual(break_down_filename('my_fileName.txt'), ['my', 'file', 'Name', '.txt'])
         self.assertEqual(break_down_filename('my-fileName.txt'), ['my', 'file', 'Name', '.txt'])
