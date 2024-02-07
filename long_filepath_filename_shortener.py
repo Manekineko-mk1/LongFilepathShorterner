@@ -98,17 +98,11 @@ def break_down_filename(name):
     This function splits a filename into components based on underscores (_) or hyphens (-), or breaks it down into separate words if it's in camelCase.
     If the filename does not contain any of these delimiters and is not in camelCase, it returns a list containing the filename as a single component.
     
-    Example: 'myCamelCaseFile.txt' -> ['my', 'Camel', 'Case', 'File', '.txt']
-    Example: 'my-file_name.txt' -> ['my', 'file', 'name', '.txt']
-    """
-
-    # Split the filename and the extension
-    parts = re.split('(?<![0-9])\.(?![0-9])', name)
-    name, ext = parts if len(parts) > 1 else (parts[0], '')
-    logging.info(f"Name: {name} | Extension: {ext}")
-    
+    Example: 'myCamelCaseFile' -> ['my', 'Camel', 'Case', 'File']
+    Example: 'my-file_name' -> ['my', 'file', 'name']
+    """    
     # Split at underscore and hyphen
-    parts = re.split('[-_]|(?<![0-9])\.(?![0-9])', name)
+    parts = re.split('[-_]', name)
     logging.info(f"Parts at underscore and hyphen: {parts}")
     
     # Further split each part at camelCase boundaries
@@ -118,10 +112,6 @@ def break_down_filename(name):
     # Flatten the list of lists
     parts = [item for sublist in parts for item in sublist]
     logging.info(f"Flatten the list of lists: {parts}")
-    
-    # Add the extension back to the list of components, if it is not empty
-    if ext:
-        parts.append('.' + ext)
     
     return parts
 
