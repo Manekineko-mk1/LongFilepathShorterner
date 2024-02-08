@@ -49,6 +49,8 @@ def read_config_values():
         'dry_run_dir': config.get('DEFAULT', 'dry_run_dir'),
         'date_str': datetime.now().strftime('%Y%m%d')
     }
+    
+    config_values['dry_run'] = True if config_values['dry_run'].lower() in ['true', '1', 'yes'] else False
 
     return config_values
 
@@ -100,7 +102,7 @@ def load_dictionary(dictionary_path):
     try:
         with open(dictionary_path, 'r') as f:
             reader = csv.reader(f, delimiter=',')
-            dictionary_conversion_pairs = {rows[0]:rows[1] for rows in reader}
+            dictionary_conversion_pairs = {rows[0].strip():rows[1].strip() for rows in reader}
     except Exception as e:
         logging.error(f"Failed to load dictionary: {str(e)}")
         print(f"Failed to load dictionary: {str(e)}. Proceeding with an empty dictionary.")
@@ -147,6 +149,8 @@ def break_down_filename(name):
     # Append extension if present
     if extension:
         parts += extension
+        
+    logging.info(f"Filename components: {parts}")
 
     return parts
 
@@ -215,7 +219,7 @@ def rename_filename(file_path, new_file_path):
             writer.writerow([file_path, str(e)])
 
 
-def shorten_long_filename(file_path, dictionary_path, filename_length_threshold, dry_run=True):
+def shorten_long_filename(file_path, dictionary_path, filename_length_threshold, dry_run):
     """
     Renames a file to a shorter name based on a provided dictionary.
 
@@ -224,8 +228,7 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     If a naming conflict occurs, it tries to resolve the conflict by appending a number to the filename. 
     If the new filename is still too long after conversion, it logs an error and does not rename the file.
     """
-    logging.info(f"Processing file: {file_path}")
-    
+    logging.info(f"Processing file: {file_path} | Dry Run: {dry_run} | Filename length threshold: {filename_length_threshold}")
     
     dictionary = load_dictionary(dictionary_path)
 
@@ -234,19 +237,21 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     
     components = break_down_filename(filename)
     new_components = convert_components(components, dictionary)
+    
+    logging.info(f"New filename components: {new_components}")
+    
     new_name = '-'.join(new_components[:-1]) + ext
     
+    logging.info(f"Expected filename change from: {filename} to: {new_name}")
+    
     if len(new_name) > filename_length_threshold:
-        logging.error(f"New filename is too long: {new_name}")
-        return None
+        logging.error(f"New filename is over threshold: {new_name} | New filename length: {len(new_name)} | Threshold: {filename_length_threshold}")
+        # return None
     
     new_file_path = check_for_naming_conflict(file_path, new_name)
     if new_file_path is None:
         logging.error(f"Could not resolve naming conflict for file: {file_path}")
         return None
-    
-    logging.info(f"Renaming file to: {new_file_path}")
-    print(f"Renaming file to: {new_file_path}")
     
     if dry_run:
         long_filename_modified_output = CONFIG_VALUES.get('long_filename_modified_output')
@@ -256,8 +261,7 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
 
 
 def simulate_rename(old_dir_path, new_dir_path, output_file_path):
-    dry_run_dir = CONFIG_VALUES.get('dry_run_dir')
-    
+    dry_run_dir = CONFIG_VALUES.get('dry_run_dir')    
     output_dir = CONFIG_VALUES.get('output_dir')
     date_str = CONFIG_VALUES.get('date_str')
     
@@ -266,7 +270,7 @@ def simulate_rename(old_dir_path, new_dir_path, output_file_path):
     write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{output_file_path}_{date_str}.csv', [old_dir_path, new_dir_path])
 
 
-def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=True):
+def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run):
     """
     Renames a directory to a shorter name based on a provided dictionary.
 
@@ -275,7 +279,9 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
     If a naming conflict occurs, it tries to resolve the conflict by appending a number to the directory name. 
     If the new directory path is still too long after conversion, it logs an error and does not rename the directory.
     """
-    logging.info(f"Processing directory shorten process on: {dir_path} | dir_length_threshold: {dir_length_threshold}")
+    dir_path = os.path.dirname(dir_path)
+    
+    logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     
     # Check if directory is already within the threshold
@@ -289,13 +295,16 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
     # Check if the renamed path will be within the threshold
     new_path = os.sep.join(new_dir_components)
     if len(new_path) > dir_length_threshold:
-        logging.error(f"Not possible to convert the folder path to the threshold!! Skipping the shorten process! | Original path: {dir_path} | Please consider updating the dictionary.")
-        return None
+        print(f"New directory path is still too long: {new_path} | New directory length: {len(new_path)} | Threshold: {dir_length_threshold}")
+        logging.error(f"New directory path is still too long: {new_path} | New directory length: {len(new_path)} | Threshold: {dir_length_threshold}")
+        # return None
 
     # Start from the end of the path and work towards the root
     for i in range(len(new_dir_components) - 1, 0, -1):
         old_dir_path = os.sep.join(dir_components[:i+1])
         new_dir_path = os.sep.join(dir_components[:i] + [new_dir_components[i]])
+        
+        print(f"Attempting to rename: {old_dir_path} to {new_dir_path}")
         
         # Skip if the old and new directory names are the same
         if old_dir_path == new_dir_path:
@@ -308,7 +317,6 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run=Tr
             simulate_rename(old_dir_path, new_dir_path, long_dir_path_modified_output)
         else:
             new_dir_path = rename_dir(old_dir_path, new_dir_path)
-            logging.info(f"Renamed folder to: {new_dir_path}")
         
         if len(new_dir_path) <= dir_length_threshold:
             logging.info(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
@@ -334,7 +342,7 @@ def rename_dir(old_dir_path, new_dir_path):
     
     try:
         os.rename(old_dir_path, new_dir_path)
-        logging.info(f"Renamed folder to: {new_dir_path}")
+        logging.info(f"Renamed folder from '{old_dir_path}' to '{new_dir_path}'")
         write_to_csv(f'{output_dir}/{long_dir_path_modified_output}_{date_str}.csv', [old_dir_path, new_dir_path])
         return new_dir_path
     except FileExistsError as e:
@@ -452,12 +460,15 @@ def process_scan():
     """
     base_dir = CONFIG_VALUES.get('base_dir')
     
-    if check_long_path_support(base_dir) is True:
-        logging.info("Long path support is enabled. Please disable it by setting the registry key LongPathsEnabled to 0 to simulate long path errors.")
-    else:
-        logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
-        counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
-        scan_long_paths_and_long_filename(base_dir, counters)
+    counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
+    scan_long_paths_and_long_filename(base_dir, counters)
+    
+    # if check_long_path_support(base_dir) is True:
+    #     logging.info("Long path support is enabled. Please disable it by setting the registry key LongPathsEnabled to 0 to simulate long path errors.")
+    # else:
+    #     logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
+    #     counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
+    #     scan_long_paths_and_long_filename(base_dir, counters)
 
 
 def process_dir_or_filename(process_type):
@@ -467,35 +478,43 @@ def process_dir_or_filename(process_type):
     """
     config_dir = CONFIG_VALUES.get('config_dir')
     dictionary_path = os.path.join(config_dir, CONFIG_VALUES.get('dictionary_path'))
-    base_dir = CONFIG_VALUES.get('base_dir')
+    output_dir = CONFIG_VALUES.get('output_dir')
     dir_scan_dir = CONFIG_VALUES.get('dir_scan_dir')
     filename_scan_dir = CONFIG_VALUES.get('filename_scan_dir')
     long_dir_path_scan_output = CONFIG_VALUES.get('long_dir_path_scan_output')
     long_filename_scan_output = CONFIG_VALUES.get('long_filename_scan_output')
     date_str = CONFIG_VALUES.get('date_str')
+    dry_run = CONFIG_VALUES.get('dry_run')
     
-    scan_dir = os.path.join(base_dir, dir_scan_dir if process_type == 'dir' else filename_scan_dir)
+    scan_dir = (dir_scan_dir if process_type == 'dir' else filename_scan_dir)
     file_pattern = f"{long_dir_path_scan_output if process_type == 'dir' else long_filename_scan_output}_{date_str}_part*"
+    
+    print(f"Scan directory: {scan_dir} | Dictionary path: {dictionary_path}")
+    print(f"Processing type: {process_type} | Dry Run: {dry_run} | File pattern: {file_pattern}")
+    print(f"os.path.join(scan_dir, file_pattern) => {os.path.join(output_dir, scan_dir, file_pattern)}")
+    print(f"Glob glob result: {glob.glob(os.path.join(output_dir, scan_dir, file_pattern))}")
 
-    for file_path in glob.glob(os.path.join(scan_dir, file_pattern)):
+    for file_path in glob.glob(os.path.join(output_dir, scan_dir, file_pattern)):
+        
         try:
             with open(file_path, 'r') as f:                
                 for line in f:
                     path = line.strip()
+                    logging.info(f"Process Type: {process_type} |  Processing path: {path}")
                     if process_type == 'dir':
                         print(f"Processing directory: {path}")
                         dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
-                        shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run=True)
+                        shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run)
                     else:
                         print(f"Processing file: {path}")
                         filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
-                        shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run=True)
+                        shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run)
         except OSError or Exception as e:
             logging.error(f"Error reading file {file_path}: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
-    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='scan', help='Specify whether to process directories, filenames, or perform a scan.')
+    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='dir', help='Specify whether to process directories, filenames, or perform a scan.')
     args = parser.parse_args()
 
     print(f"Base directory: {CONFIG_VALUES.get('base_dir')}")
