@@ -62,6 +62,29 @@ def configure_logging(log_dir):
 
 configure_logging(CONFIG_VALUES.get('log_dir'))
 
+def check_and_create_dirs(config_values):
+    # Get the output directory from the config values
+    output_dir = config_values['output_dir']
+
+    # List of directories to check/create
+    dirs_to_check = ['dir_scan_dir', 'filename_scan_dir', 'dry_run_dir']
+
+    for dir_key in dirs_to_check:
+        # Get the full path of the directory
+        dir_path = os.path.join(output_dir, config_values[dir_key])
+
+        # Check if the directory exists
+        if not os.path.exists(dir_path):
+            logging.info(f"Essential directory does not exist: {dir_path}. Creating it...")
+            try:
+                # If the directory doesn't exist, create it
+                os.makedirs(dir_path)
+                logging.info(f"Created directory: {dir_path}")
+            except Exception as e:
+                logging.error(f"Failed to create directory {dir_path}: {e}")
+
+check_and_create_dirs(CONFIG_VALUES)
+
 def load_dictionary(dictionary_path):
     """
     Loads a dictionary from a CSV file.
