@@ -149,8 +149,6 @@ def break_down_filename(name):
     # Append extension if present
     if extension:
         parts += extension
-        
-    logging.info(f"Filename components: {parts}")
 
     return parts
 
@@ -184,9 +182,17 @@ def check_for_naming_conflict(file_path, new_name):
     
     for i in range(CONFIG_VALUES.get('number_of_retry')):
         new_file_path = os.path.join(os.path.dirname(file_path), new_name)
+        logging.info(f"Checking for naming conflict: {new_name}")
+        print(f"Checking for naming conflict: {new_name}")
+        
         if not os.path.exists(new_file_path):
+            logging.info(f"No naming conflict found for file: {file_path} | New name: {new_name}")
+            print(f"No naming conflict found for file: {file_path} | New name: {new_name}")
             return new_file_path
-        new_name = f"{new_name.rsplit('_', 1)[0]}_{i+1}{ext}"
+        else:
+            new_name = f"{name.rsplit('_', 1)[0]}_{i+1}{ext}"
+            logging.info(f"Naming conflict found for file: {file_path} | New name: {new_name}. Trying again...")
+            print(f"Naming conflict found for file: {file_path} | New name: {new_name}. Trying again...")
     
     logging.error(f"Failed to rename file after 10 attempts: {file_path}")
     return None
@@ -206,9 +212,14 @@ def rename_filename(file_path, new_file_path):
     date_str = CONFIG_VALUES.get('date_str')
     output_dir = CONFIG_VALUES.get('output_dir')
     
+    logging.info(f"Attempting to rename filename from: {file_path} to {new_file_path}")
+    print(f"Attempting to rename filename from: {file_path} to {new_file_path}")
+    
     try:
         os.rename(file_path, new_file_path)
-        logging.info(f"Renamed file to: {new_file_path}")
+        logging.info(f"Filename rename successed. Renamed filename from: {file_path} to {new_file_path}")
+        print(f"Filename rename successed. Renamed filename from: {file_path} to {new_file_path}")
+        
         with open(f'{output_dir}/{long_filename_modified_output}_{date_str}.csv', 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([file_path, new_file_path])
@@ -229,6 +240,7 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     If the new filename is still too long after conversion, it logs an error and does not rename the file.
     """
     logging.info(f"Processing file: {file_path} | Dry Run: {dry_run} | Filename length threshold: {filename_length_threshold}")
+    print(f"Processing file: {file_path} | Dry Run: {dry_run} | Filename length threshold: {filename_length_threshold}")
     
     dictionary = load_dictionary(dictionary_path)
 
@@ -238,11 +250,13 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     components = break_down_filename(filename)
     new_components = convert_components(components, dictionary)
     
+    logging.info(f"Filename components: {components}")
+    print(f"Filename components: {components}")
+    
     logging.info(f"New filename components: {new_components}")
+    print(f"New filename components: {new_components}")
     
     new_name = '-'.join(new_components[:-1]) + ext
-    
-    logging.info(f"Expected filename change from: {filename} to: {new_name}")
     
     if len(new_name) > filename_length_threshold:
         logging.error(f"New filename is over threshold: {new_name} | New filename length: {len(new_name)} | Threshold: {filename_length_threshold}")
@@ -250,13 +264,13 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     
     new_file_path = check_for_naming_conflict(file_path, new_name)
     if new_file_path is None:
-        logging.error(f"Could not resolve naming conflict for file: {file_path}")
+        logging.error(f"Could not resolve naming conflict for file: {file_path}. Skipping...")
         return None
     
     if dry_run:
         long_filename_modified_output = CONFIG_VALUES.get('long_filename_modified_output')
         simulate_rename(file_path, new_file_path, long_filename_modified_output)        
-    else:
+    else:        
         rename_filename(file_path, new_file_path)
 
 
@@ -495,18 +509,15 @@ def process_dir_or_filename(process_type):
     print(f"Glob glob result: {glob.glob(os.path.join(output_dir, scan_dir, file_pattern))}")
 
     for file_path in glob.glob(os.path.join(output_dir, scan_dir, file_pattern)):
-        
         try:
             with open(file_path, 'r') as f:                
                 for line in f:
                     path = line.strip()
                     logging.info(f"Process Type: {process_type} |  Processing path: {path}")
                     if process_type == 'dir':
-                        print(f"Processing directory: {path}")
                         dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
                         shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run)
                     else:
-                        print(f"Processing file: {path}")
                         filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
                         shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run)
         except OSError or Exception as e:
@@ -514,7 +525,7 @@ def process_dir_or_filename(process_type):
 
 def main():
     parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
-    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='dir', help='Specify whether to process directories, filenames, or perform a scan.')
+    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='scan', help='Specify whether to process directories, filenames, or perform a scan.')
     args = parser.parse_args()
 
     print(f"Base directory: {CONFIG_VALUES.get('base_dir')}")

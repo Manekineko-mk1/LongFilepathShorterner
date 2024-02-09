@@ -15,13 +15,15 @@ class TestProcessDirOrFilename(unittest.TestCase):
             'config_dir': os.path.join('path', 'to', 'config'),
             'dictionary_path': 'dictionary.txt',
             'base_dir': os.path.join('path', 'to', 'base'),
+            'output_dir': 'output_dir',
             'dir_scan_dir': 'dir_scan',
             'filename_scan_dir': 'filename_scan',
             'long_dir_path_scan_output': 'long_dir_path_scan',
             'long_filename_scan_output': 'long_filename_scan',
             'date_str': '20220101',
             'dir_length_threshold': 10,
-            'filename_length_threshold': 15
+            'filename_length_threshold': 15,
+            'dry_run': True
         }
         
     def tearDown(self):
@@ -32,8 +34,23 @@ class TestProcessDirOrFilename(unittest.TestCase):
         """Test case: a file with a list of directories is processed"""
         
         print("Running test_process_dir...")
+        
+        config_values = {
+            'dictionary_path': 'dictionary.txt',
+            'config_dir': 'path\\to\\config',
+            'base_dir': os.path.join('path', 'to', 'base'),
+            'output_dir': 'output_dir',
+            'dir_scan_dir': 'dir_scan',
+            'filename_scan_dir': 'filename_scan',
+            'long_dir_path_scan_output': 'long_dir_path_scan',
+            'long_filename_scan_output': 'long_filename_scan',
+            'date_str': '20220101',
+            'dir_length_threshold': 10,
+            'filename_length_threshold': 15,
+            'dry_run': True
+        }
 
-        with patch('long_filepath_filename_shortener.CONFIG_VALUES', self.config_values):
+        with patch('long_filepath_filename_shortener.CONFIG_VALUES', config_values):
             with patch('builtins.open', create=True) as mock_open:
                 # Mocking the file content
                 mock_open.return_value.__enter__.return_value = iter([
@@ -54,9 +71,9 @@ class TestProcessDirOrFilename(unittest.TestCase):
                         # Assert that the correct paths are processed
                         print("Checking if the correct paths were processed...")
                         self.assertEqual([
-                            call(join('path', 'to', 'directory1'), join('path', 'to', 'config', 'dictionary.txt'), 10, dry_run=True),
-                            call(join('path', 'to', 'directory2'), join('path', 'to', 'config', 'dictionary.txt'), 10, dry_run=True),
-                            call(join('path', 'to', 'directory3'), join('path', 'to', 'config', 'dictionary.txt'), 10, dry_run=True),
+                            call(join('path', 'to', 'directory1'), join('path', 'to', 'config', 'dictionary.txt'), 10, True),
+                            call(join('path', 'to', 'directory2'), join('path', 'to', 'config', 'dictionary.txt'), 10, True),
+                            call(join('path', 'to', 'directory3'), join('path', 'to', 'config', 'dictionary.txt'), 10, True),
                         ], mock_shorten_dir.call_args_list)
                         print("Test passed!")
 
@@ -65,8 +82,23 @@ class TestProcessDirOrFilename(unittest.TestCase):
         """Test case: a file with a list of filenames is processed"""
         
         print("Running test_process_filename...")
+        
+        config_values = {
+            'dictionary_path': 'dictionary.txt',
+            'config_dir': 'path\\to\\config',
+            'base_dir': os.path.join('path', 'to', 'base'),
+            'output_dir': 'output_dir',
+            'dir_scan_dir': 'dir_scan',
+            'filename_scan_dir': 'filename_scan',
+            'long_dir_path_scan_output': 'long_dir_path_scan',
+            'long_filename_scan_output': 'long_filename_scan',
+            'date_str': '20220101',
+            'dir_length_threshold': 10,
+            'filename_length_threshold': 15,
+            'dry_run': True
+        }
 
-        with patch('long_filepath_filename_shortener.CONFIG_VALUES', self.config_values):
+        with patch('long_filepath_filename_shortener.CONFIG_VALUES', config_values):
             with patch('builtins.open', create=True) as mock_open:
                 # Mocking the file content
                 mock_open.return_value.__enter__.return_value = iter([
@@ -91,9 +123,9 @@ class TestProcessDirOrFilename(unittest.TestCase):
                         # Assert that the correct paths are processed
                         print("Checking if the correct paths were processed...")
                         self.assertEqual([
-                            call('mock_path1', join('path', 'to', 'config', 'dictionary.txt'), 15, dry_run=True),
-                            call('mock_path2', join('path', 'to', 'config', 'dictionary.txt'), 15, dry_run=True),
-                            call('mock_path3', join('path', 'to', 'config', 'dictionary.txt'), 15, dry_run=True)
+                            call('mock_path1', join('path', 'to', 'config', 'dictionary.txt'), 15, True),
+                            call('mock_path2', join('path', 'to', 'config', 'dictionary.txt'), 15, True),
+                            call('mock_path3', join('path', 'to', 'config', 'dictionary.txt'), 15, True)
                         ], mock_shorten_filename.call_args_list)
                         print("Test passed!")
 
