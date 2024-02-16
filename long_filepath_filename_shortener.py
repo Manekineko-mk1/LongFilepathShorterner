@@ -220,12 +220,12 @@ def rename_filename(file_path, new_file_path):
         logging.info(f"Filename rename successed. Renamed filename from: {file_path} to {new_file_path}")
         print(f"Filename rename successed. Renamed filename from: {file_path} to {new_file_path}")
         
-        with open(f'{output_dir}/{long_filename_modified_output}_{date_str}.csv', 'a', newline='') as file:
+        with open(f'{output_dir}/{long_filename_modified_output}_{date_str}.csv', 'a', encoding='utf-8', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([file_path, new_file_path])
     except (FileNotFoundError, PermissionError) as e:
         logging.error(f"Error renaming file: {e}")
-        with open(f'{output_dir}/{long_filename_modified_error}_{date_str}.csv', 'a', newline='') as file:
+        with open(f'{output_dir}/{long_filename_modified_error}_{date_str}.csv', 'a', encoding='utf-8', newline='') as file:
             writer = csv.writer(file)
             writer.writerow([file_path, str(e)])
 
@@ -303,11 +303,20 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run):
         return dir_path
     
     dictionary = load_dictionary(dictionary_path)
-    dir_components = dir_path.split(os.sep)
-    new_dir_components = convert_components(dir_components, dictionary)
+    dir_components = [break_down_filename(component) for component in dir_path.split(os.sep)]
+    # new_dir_components = convert_components(dir_components, dictionary)
+    new_dir_components = [convert_components(component, dictionary) for component in dir_components]
+    
+    org_dir_path_components = dir_path.split(os.sep)
+    
+    print(f"Directory components: {dir_components}")
+    logging.info(f"Directory components: {dir_components}")
+    
+    print(f"New directory components: {new_dir_components}")
+    logging.info(f"New directory components: {new_dir_components}")
     
     # Check if the renamed path will be within the threshold
-    new_path = os.sep.join(new_dir_components)
+    new_path = os.sep.join('-'.join(component) for component in new_dir_components)
     if len(new_path) > dir_length_threshold:
         print(f"New directory path is still too long: {new_path} | New directory length: {len(new_path)} | Threshold: {dir_length_threshold}")
         logging.error(f"New directory path is still too long: {new_path} | New directory length: {len(new_path)} | Threshold: {dir_length_threshold}")
@@ -315,8 +324,9 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run):
 
     # Start from the end of the path and work towards the root
     for i in range(len(new_dir_components) - 1, 0, -1):
-        old_dir_path = os.sep.join(dir_components[:i+1])
-        new_dir_path = os.sep.join(dir_components[:i] + [new_dir_components[i]])
+        #old_dir_path = os.sep.join(['-'.join(component) for component in dir_components[:i+1]])
+        old_dir_path = os.sep.join(org_dir_path_components[:i+1])
+        new_dir_path = os.sep.join(['-'.join(component) for component in dir_components[:i]] + ['-'.join(component) for component in new_dir_components[i]])
         
         print(f"Attempting to rename: {old_dir_path} to {new_dir_path}")
         
@@ -448,7 +458,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     counters['filename_file_part'] += 1
                     counters['filename_counter'] = 0
                 counters['filename_counter'] += 1
-                with open(f'{output_dir}/{filename_scan_dir}/{long_filename_scan_output}_{date_str}_part{counters["filename_file_part"]}.txt', 'a') as long_filename_list_file:
+                with open(f'{output_dir}/{filename_scan_dir}/{long_filename_scan_output}_{date_str}_part{counters["filename_file_part"]}.txt', 'a', encoding='utf-8') as long_filename_list_file:
                     logging.info(f"Found long filename: {os.path.basename(file_path)}")
                     write_to_file(long_filename_list_file, file_path)
 
@@ -457,7 +467,7 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     counters['dir_file_part'] += 1
                     counters['dir_counter'] = 0
                 counters['dir_counter'] += 1
-                with open(f'{output_dir}/{dir_scan_dir}/{long_dir_path_scan_output}_{date_str}_part{counters["dir_file_part"]}.txt', 'a') as long_file_path_list_file:
+                with open(f'{output_dir}/{dir_scan_dir}/{long_dir_path_scan_output}_{date_str}_part{counters["dir_file_part"]}.txt', 'a', encoding='utf-8') as long_file_path_list_file:
                     logging.info(f"Found long directories path: {file_path}")
                     write_to_file(long_file_path_list_file, file_path)
                 
