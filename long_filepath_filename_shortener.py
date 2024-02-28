@@ -63,7 +63,18 @@ CONFIG_VALUES = read_config_values()
 def configure_logging(log_dir):
     """ Configure logging. """
     date_str = CONFIG_VALUES.get('date_str')
-    logging.basicConfig(filename=f'{log_dir}/shortener_log_{date_str}.log', level=logging.DEBUG)
+    #logging.basicConfig(filename=f'{log_dir}/shortener_log_{date_str}.log', level=logging.DEBUG, encoding='utf-8')
+    
+    log_filename = f'{log_dir}/shortener_log_{date_str}.log'
+    
+    # Create a file handler with utf-8 encoding
+    file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+    
+    # Create a logger and add the file handler to it
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    
     logging.info("Starting the long path and long filename shortener script...")
 
 configure_logging(CONFIG_VALUES.get('log_dir'))
@@ -322,7 +333,54 @@ def simulate_rename(old_dir_path, new_dir_path, output_file_path):
     write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{output_file_path}_{date_str}.csv', [old_dir_path, new_dir_path])
 
 
-def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, dry_run):
+def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold, dry_run):
+    dir_path = os.path.dirname(file_path)
+    full_dir_components = dir_path.split(os.sep)
+    folder_conversion_stop_level = 6
+    
+    logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
+    print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
+    
+    
+    for i in range(len(full_dir_components) - 1, folder_conversion_stop_level, -1):
+        current_dir = os.sep.join(full_dir_components[:i+1])
+        
+        # Scan the parent directory for long sub-folders
+        with os.scandir(current_dir) as it:
+            for entry in it:
+                if entry.is_dir() and len(entry.path) > dir_length_threshold:
+                    sub_dir_path = entry.path
+                    
+                    # Process the long sub-folder
+                    sub_dir_components = [break_down_dir(component) for component in sub_dir_path.split(os.sep)]
+                    print(f"Directory components: {sub_dir_components}")
+                    
+                    if if_use_regular_expression:
+                        dir_path_regex = CONFIG_VALUES.get('dir_path_regex')
+                        print(f"Using regular expression to break down directory path: {sub_dir_path}")
+                        logging.info(f"Using regular expression to break down directory path: {sub_dir_path}")
+                        regex = re.compile(dir_path_regex)
+                        new_sub_dir_component = regex.sub('', sub_dir_components[-1]) if len(sub_dir_components[-1]) > 3 else sub_dir_components[-1]          
+                    else:
+                        dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
+                        print(f"Using default method to break down directory path: {dir_path}")
+                        logging.info(f"Using default method to break down directory path: {dir_path}")
+                        dictionary = load_dictionary(dictionary_path)
+                        new_sub_dir_component = convert_components(sub_dir_components[-1], dictionary)
+                    
+                    new_sub_dir_path = os.sep.join(full_dir_components[:-1] + [new_sub_dir_component])
+                    
+                    if new_sub_dir_path == new_sub_dir_path:
+                        logging.info(f"No change for sub-folder: {sub_dir_path} | Moving one level up and continue the check ...")
+                        continue
+                    
+                    if dry_run:
+                        logging.info(f"Attempting to rename: {sub_dir_path} to {new_sub_dir_path}")
+                    else:
+                        rename_dir(sub_dir_path, new_sub_dir_path)
+
+
+def shorten_long_dir_old(file_path, if_use_regular_expression, dir_length_threshold, dry_run):
     """
     Renames a directory to a shorter name based on a provided dictionary.
 
@@ -333,8 +391,7 @@ def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, 
     """
     dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
     dir_path_regex = CONFIG_VALUES.get('dir_path_regex')
-    
-    dir_path = os.path.dirname(dir_path)
+    dir_path = os.path.dirname(file_path)
     
     logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
@@ -501,9 +558,12 @@ def scan_long_paths_and_long_filename(base_dir, counters):
     long_dir_path_scan_output = CONFIG_VALUES.get('long_dir_path_scan_output')
     date_str = CONFIG_VALUES.get('date_str')
 
+    logged_dirs = set()
+    
     for entry in os.scandir(long_base_dir):
         if entry.is_file():
             file_path = entry.path
+            
                 
             # logging.info(f"File path: {file_path}")
             # logging.info(f"Checking file: {entry.name}")
@@ -518,13 +578,15 @@ def scan_long_paths_and_long_filename(base_dir, counters):
                     logging.info(f"Found long filename: {os.path.basename(file_path)}")
                     write_to_file(long_filename_list_file, file_path)
 
-            if len(os.path.dirname(file_path)) >= dir_length_threshold:
+            dir_path = os.path.dirname(file_path)
+            if len(dir_path) >= dir_length_threshold and dir_path not in logged_dirs:
+                logged_dirs.add(dir_path)
                 if counters['dir_counter'] >= scan_entry_threshold:
                     counters['dir_file_part'] += 1
                     counters['dir_counter'] = 0
                 counters['dir_counter'] += 1
                 with open(f'{output_dir}/{dir_scan_dir}/{long_dir_path_scan_output}_{date_str}_part{counters["dir_file_part"]}.txt', 'a', encoding='utf-8') as long_file_path_list_file:
-                    logging.info(f"Found long directories path: {file_path} | Length: {len(os.path.dirname(file_path))} | Threshold: {dir_length_threshold}")
+                    logging.info(f"Found long directories path: {dir_path} | Length: {len(os.path.dirname(file_path))} | Threshold: {dir_length_threshold}")
                     write_to_file(long_file_path_list_file, file_path)
                 
         elif entry.is_dir():
@@ -576,13 +638,16 @@ def process_dir_or_filename(process_type):
             with open(file_path, 'r') as f:                
                 for line in f:
                     path = line.strip()
-                    logging.info(f"\nProcess Type: {process_type} |  Processing path: {path}")
-                    if process_type == 'dir':
-                        dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
-                        shorten_long_dir(path, if_use_regular_expression, dir_length_threshold, dry_run)
-                    else:
-                        filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
-                        shorten_long_filename(path, if_use_regular_expression, filename_length_threshold, dry_run)
+                    try:
+                        logging.info(f"\nProcess Type: {process_type} |  Processing path: {path}")
+                        if process_type == 'dir':
+                            dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
+                            shorten_long_dir(path, if_use_regular_expression, dir_length_threshold, dry_run)
+                        else:
+                            filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
+                            shorten_long_filename(path, if_use_regular_expression, filename_length_threshold, dry_run)
+                    except OSError as e:
+                        logging.error(f"Error processing path: {path} | Maybe already processed. | {e}")
         except OSError or Exception as e:
             logging.error(f"Error reading file {file_path}: {e}")
 

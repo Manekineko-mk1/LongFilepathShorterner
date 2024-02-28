@@ -47,7 +47,8 @@ class TestProcessDirOrFilename(unittest.TestCase):
             'date_str': '20220101',
             'dir_length_threshold': 10,
             'filename_length_threshold': 15,
-            'dry_run': True
+            'dry_run': True,
+            'regular_expression': True
         }
 
         with patch('long_filepath_filename_shortener.CONFIG_VALUES', config_values):
@@ -71,9 +72,9 @@ class TestProcessDirOrFilename(unittest.TestCase):
                         # Assert that the correct paths are processed
                         print("Checking if the correct paths were processed...")
                         self.assertEqual([
-                            call(join('path', 'to', 'directory1'), join('path', 'to', 'config', 'dictionary.txt'), 10, True),
-                            call(join('path', 'to', 'directory2'), join('path', 'to', 'config', 'dictionary.txt'), 10, True),
-                            call(join('path', 'to', 'directory3'), join('path', 'to', 'config', 'dictionary.txt'), 10, True),
+                            call(join('path', 'to', 'directory1'), config_values['regular_expression'], 10, True),
+                            call(join('path', 'to', 'directory2'), config_values['regular_expression'], 10, True),
+                            call(join('path', 'to', 'directory3'), config_values['regular_expression'], 10, True),
                         ], mock_shorten_dir.call_args_list)
                         print("Test passed!")
 
@@ -95,7 +96,8 @@ class TestProcessDirOrFilename(unittest.TestCase):
             'date_str': '20220101',
             'dir_length_threshold': 10,
             'filename_length_threshold': 15,
-            'dry_run': True
+            'dry_run': True,
+            'regular_expression': True
         }
 
         with patch('long_filepath_filename_shortener.CONFIG_VALUES', config_values):
@@ -123,9 +125,9 @@ class TestProcessDirOrFilename(unittest.TestCase):
                         # Assert that the correct paths are processed
                         print("Checking if the correct paths were processed...")
                         self.assertEqual([
-                            call('mock_path1', join('path', 'to', 'config', 'dictionary.txt'), 15, True),
-                            call('mock_path2', join('path', 'to', 'config', 'dictionary.txt'), 15, True),
-                            call('mock_path3', join('path', 'to', 'config', 'dictionary.txt'), 15, True)
+                            call('mock_path1', config_values['regular_expression'], 15, True),
+                            call('mock_path2', config_values['regular_expression'], 15, True),
+                            call('mock_path3', config_values['regular_expression'], 15, True)
                         ], mock_shorten_filename.call_args_list)
                         print("Test passed!")
 
