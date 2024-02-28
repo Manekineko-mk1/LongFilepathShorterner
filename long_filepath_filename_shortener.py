@@ -259,7 +259,7 @@ def rename_filename(file_path, new_file_path):
             writer.writerow([file_path, str(e)])
 
 
-def shorten_long_filename(file_path, dictionary_path, filename_length_threshold, dry_run):
+def shorten_long_filename(file_path, if_use_regular_expression, filename_length_threshold, dry_run):
     """
     Renames a file to a shorter name based on a provided dictionary.
 
@@ -271,21 +271,30 @@ def shorten_long_filename(file_path, dictionary_path, filename_length_threshold,
     logging.info(f"Processing file: {file_path} | Dry Run: {dry_run} | Filename length threshold: {filename_length_threshold}")
     print(f"Processing file: {file_path} | Dry Run: {dry_run} | Filename length threshold: {filename_length_threshold}")
     
-    dictionary = load_dictionary(dictionary_path)
-
     filename = os.path.basename(file_path)
     name, ext = os.path.splitext(filename)
     
-    components = break_down_filename(filename)
-    new_components = convert_components(components, dictionary)
+    old_filename_components = break_down_filename(filename)
     
-    logging.info(f"Filename components: {components}")
-    print(f"Filename components: {components}")
+    regex_conversion_limit = 3
     
-    logging.info(f"New filename components: {new_components}")
-    print(f"New filename components: {new_components}")
+    if if_use_regular_expression:
+        dir_path_regex = CONFIG_VALUES.get('dir_path_regex')
+        regex = re.compile(dir_path_regex)
+        new_filename_components = [regex.sub('', word) if len(word) > regex_conversion_limit else word for word in old_filename_components]
+    else: 
+        dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
+        dictionary = load_dictionary(dictionary_path)
+        new_filename_components = convert_components(old_filename_components, dictionary)
     
-    new_name = '-'.join(new_components[:-1]) + ext
+    
+    logging.info(f"Filename components: {old_filename_components}")
+    print(f"Filename components: {old_filename_components}")
+    
+    logging.info(f"New filename components: {new_filename_components}")
+    print(f"New filename components: {new_filename_components}")
+    
+    new_name = '-'.join(new_filename_components[:-1]) + ext
     
     if len(new_name) > filename_length_threshold:
         logging.error(f"New filename is over threshold: {new_name} | New filename length: {len(new_name)} | Threshold: {filename_length_threshold}")
@@ -323,6 +332,7 @@ def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, 
     If the new directory path is still too long after conversion, it logs an error and does not rename the directory.
     """
     dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
+    dir_path_regex = CONFIG_VALUES.get('dir_path_regex')
     
     dir_path = os.path.dirname(dir_path)
     
@@ -334,17 +344,19 @@ def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, 
         return dir_path
     
     dir_components = [break_down_dir(component) for component in dir_path.split(os.sep)]
+    print(f"Directory components: {dir_components}")
     
     if if_use_regular_expression:
         print(f"Using regular expression to break down directory path: {dir_path}")
         logging.info(f"Using regular expression to break down directory path: {dir_path}")
+        regex = re.compile(dir_path_regex)
+        new_dir_components = dir_components[:7] + [[regex.sub('', word) if len(word) > 3 else word for word in component] for component in dir_components[7:]]    # if we want to remove vowels from the 8th level of the directory
+        # new_dir_components = [[regex.sub('', word) for word in component] for component in dir_components]
     else:
         print(f"Using default method to break down directory path: {dir_path}")
         logging.info(f"Using default method to break down directory path: {dir_path}")
         dictionary = load_dictionary(dictionary_path)
         new_dir_components = [convert_components(component, dictionary) for component in dir_components]
-        
-    
     
     
     org_dir_path_components = dir_path.split(os.sep)
@@ -355,15 +367,9 @@ def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, 
     print(f"New directory components: {new_dir_components}")
     logging.info(f"New directory components: {new_dir_components}")
     
-    # Check if the renamed path will be within the threshold
-    # new_path = os.sep.join('-'.join(component) for component in new_dir_components)
-    # if len(new_path) > dir_length_threshold:
-    #     print(f"New directory path is still too long: {new_path} | New directory length: {len(new_path)} | Threshold: {dir_length_threshold}")
-    #     logging.error(f"New directory path is still too long: {new_path} | New directory length: {len(new_path)} | Threshold: {dir_length_threshold}")
-        # return None
-
-    # Start from the end of the path and work towards the root
-    for i in range(len(new_dir_components) - 1, 6, -1):
+    # Start from the end of the path and work towards the root, stopping at level 3 from the root, like C:\Users\username\Documents
+    stop_level = 6      # need to add 3 extra level for \\? prefix
+    for i in range(len(new_dir_components) - 1, stop_level, -1):
         # Skip if the original and new directory components are the same
         if dir_components[i] == new_dir_components[i]:
             print(f"No change for sub-folder: {os.sep.join(org_dir_path_components[:i+1])}  | Moving one level up and continue the check ...")
@@ -393,6 +399,9 @@ def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, 
             logging.info(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
             print(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
             break
+        else:
+            logging.info(f"New folder path is still too long: {new_dir_path} | New folder length: {len(new_dir_path)} | Threshold: {dir_length_threshold}")
+            print(f"New folder path is still too long: {new_dir_path} | New folder length: {len(new_dir_path)} | Threshold: {dir_length_threshold}")
         
     return new_dir_path
 
@@ -560,7 +569,6 @@ def process_dir_or_filename(process_type):
     scan_dir = (dir_scan_dir if process_type == 'dir' else filename_scan_dir)
     file_pattern = f"{long_dir_path_scan_output if process_type == 'dir' else long_filename_scan_output}_{date_str}_part*"
     
-    print(f"Scan directory: {scan_dir} | Dictionary path: {dictionary_path}")
     print(f"Processing type: {process_type} | Dry Run: {dry_run} | File pattern: {file_pattern}")
 
     for file_path in glob.glob(os.path.join(output_dir, scan_dir, file_pattern)):
@@ -580,7 +588,7 @@ def process_dir_or_filename(process_type):
 
 def main():
     parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
-    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='dir', help='Specify whether to process directories, filenames, or perform a scan.')
+    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='filename', help='Specify whether to process directories, filenames, or perform a scan.')
     args = parser.parse_args()
 
     print(f"Base directory: {CONFIG_VALUES.get('base_dir')}")
