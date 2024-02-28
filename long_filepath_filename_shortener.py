@@ -47,10 +47,14 @@ def read_config_values():
         'long_dir_path_modified_error': config.get('DEFAULT', 'long_dir_path_modified_error'),
         'dry_run': config.get('DEFAULT', 'dry_run'),
         'dry_run_dir': config.get('DEFAULT', 'dry_run_dir'),
-        'date_str': datetime.now().strftime('%Y%m%d')
+        'date_str': datetime.now().strftime('%Y%m%d'),
+        'regular_expression': config.get('REGULAR_EXPRESSION', 'regular_expression'),
+        'dir_path_regex': config.get('REGULAR_EXPRESSION', 'dir_path_regex'),
+        'filename_regex': config.get('REGULAR_EXPRESSION', 'filename_regex')
     }
     
     config_values['dry_run'] = True if config_values['dry_run'].lower() in ['true', '1', 'yes'] else False
+    config_values['regular_expression'] = True if config_values['regular_expression'].lower() in ['true', '1', 'yes'] else False
 
     return config_values
 
@@ -309,7 +313,7 @@ def simulate_rename(old_dir_path, new_dir_path, output_file_path):
     write_to_csv(f'{output_dir}/{dry_run_dir}/dry_run_{output_file_path}_{date_str}.csv', [old_dir_path, new_dir_path])
 
 
-def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run):
+def shorten_long_dir(dir_path, if_use_regular_expression, dir_length_threshold, dry_run):
     """
     Renames a directory to a shorter name based on a provided dictionary.
 
@@ -318,6 +322,8 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run):
     If a naming conflict occurs, it tries to resolve the conflict by appending a number to the directory name. 
     If the new directory path is still too long after conversion, it logs an error and does not rename the directory.
     """
+    dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
+    
     dir_path = os.path.dirname(dir_path)
     
     logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
@@ -327,10 +333,19 @@ def shorten_long_dir(dir_path, dictionary_path, dir_length_threshold, dry_run):
     if len(dir_path) <= dir_length_threshold:
         return dir_path
     
-    dictionary = load_dictionary(dictionary_path)
-    dir_components = [break_down_filename(component) for component in dir_path.split(os.sep)]
-    # new_dir_components = convert_components(dir_components, dictionary)
-    new_dir_components = [convert_components(component, dictionary) for component in dir_components]
+    dir_components = [break_down_dir(component) for component in dir_path.split(os.sep)]
+    
+    if if_use_regular_expression:
+        print(f"Using regular expression to break down directory path: {dir_path}")
+        logging.info(f"Using regular expression to break down directory path: {dir_path}")
+    else:
+        print(f"Using default method to break down directory path: {dir_path}")
+        logging.info(f"Using default method to break down directory path: {dir_path}")
+        dictionary = load_dictionary(dictionary_path)
+        new_dir_components = [convert_components(component, dictionary) for component in dir_components]
+        
+    
+    
     
     org_dir_path_components = dir_path.split(os.sep)
     
@@ -532,8 +547,7 @@ def process_dir_or_filename(process_type):
     Process directory or filename based on the given process_type.
     This is the entry point for the shortening process.
     """
-    config_dir = CONFIG_VALUES.get('config_dir')
-    dictionary_path = os.path.join(config_dir, CONFIG_VALUES.get('dictionary_path'))
+    
     output_dir = CONFIG_VALUES.get('output_dir')
     dir_scan_dir = CONFIG_VALUES.get('dir_scan_dir')
     filename_scan_dir = CONFIG_VALUES.get('filename_scan_dir')
@@ -541,14 +555,13 @@ def process_dir_or_filename(process_type):
     long_filename_scan_output = CONFIG_VALUES.get('long_filename_scan_output')
     date_str = CONFIG_VALUES.get('date_str')
     dry_run = CONFIG_VALUES.get('dry_run')
+    if_use_regular_expression = CONFIG_VALUES.get('regular_expression')
     
     scan_dir = (dir_scan_dir if process_type == 'dir' else filename_scan_dir)
     file_pattern = f"{long_dir_path_scan_output if process_type == 'dir' else long_filename_scan_output}_{date_str}_part*"
     
     print(f"Scan directory: {scan_dir} | Dictionary path: {dictionary_path}")
     print(f"Processing type: {process_type} | Dry Run: {dry_run} | File pattern: {file_pattern}")
-    print(f"os.path.join(scan_dir, file_pattern) => {os.path.join(output_dir, scan_dir, file_pattern)}")
-    print(f"Glob glob result: {glob.glob(os.path.join(output_dir, scan_dir, file_pattern))}")
 
     for file_path in glob.glob(os.path.join(output_dir, scan_dir, file_pattern)):
         try:
@@ -558,10 +571,10 @@ def process_dir_or_filename(process_type):
                     logging.info(f"\nProcess Type: {process_type} |  Processing path: {path}")
                     if process_type == 'dir':
                         dir_length_threshold = CONFIG_VALUES.get('dir_length_threshold')
-                        shorten_long_dir(path, dictionary_path, dir_length_threshold, dry_run)
+                        shorten_long_dir(path, if_use_regular_expression, dir_length_threshold, dry_run)
                     else:
                         filename_length_threshold = CONFIG_VALUES.get('filename_length_threshold')
-                        shorten_long_filename(path, dictionary_path, filename_length_threshold, dry_run)
+                        shorten_long_filename(path, if_use_regular_expression, filename_length_threshold, dry_run)
         except OSError or Exception as e:
             logging.error(f"Error reading file {file_path}: {e}")
 
