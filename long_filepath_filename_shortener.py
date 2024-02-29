@@ -169,18 +169,15 @@ def break_down_filename(name):
 
 def break_down_dir(name):
     """
-    Breaks down the dir into components based on delimiters or camelCase.
+    Breaks down a directory name into its individual parts.
 
-    This function splits a folder name into components based on underscores (_) or hyphens (-), or breaks it down into separate words if it's in camelCase.
-    If the filename does not contain any of these delimiters and is not in camelCase, it returns a list containing the filename as a single component.
-    
-    Example: 'myCamelCaseFile' -> ['my', 'Camel', 'Case', 'File']
-    Example: 'my-file_name' -> ['my', 'file', 'name']
-    """    
+    Args:
+        name (str): The directory name to be broken down.
 
-    # Split at underscore, hyphen, and preserve digit-based decimals
-    #parts = re.split(r'(?<!\d)[_.](?!\d)|(?<=\d)[_.](?!\d)|[-_]', name)
-    
+    Returns:
+        list: A list of individual parts of the directory name.
+    """
+
     # Split at underscore, hyphen, and preserve digit-based decimals and dot between strings
     parts = re.split(r'(?<!\d)[_.](?!\d)(?<!\w)[_.](?!\w)|(?<=\d)[_.](?!\d)|[-_]', name)
 
@@ -324,6 +321,17 @@ def shorten_long_filename(file_path, if_use_regular_expression, filename_length_
 
 
 def simulate_rename(old_dir_path, new_dir_path, output_file_path):
+    """
+    Simulates the renaming of a directory path.
+
+    Args:
+        old_dir_path (str): The original directory path.
+        new_dir_path (str): The new directory path.
+        output_file_path (str): The output file path.
+
+    Returns:
+        None
+    """
     dry_run_dir = CONFIG_VALUES.get('dry_run_dir')    
     output_dir = CONFIG_VALUES.get('output_dir')
     date_str = CONFIG_VALUES.get('date_str')
@@ -334,12 +342,28 @@ def simulate_rename(old_dir_path, new_dir_path, output_file_path):
 
 
 def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold, dry_run):
+    """
+    Shortens long directory paths by renaming sub-folders that exceed a specified length threshold.
+
+    Args:
+        file_path (str): The path of the file for which the directory needs to be shortened.
+        if_use_regular_expression (bool): Flag indicating whether to use regular expression for breaking down directory path.
+        dir_length_threshold (int): The maximum length allowed for a directory path.
+        dry_run (bool): Flag indicating whether to simulate the renaming process without actually renaming the directories.
+
+    Returns:
+        None
+    """
+    
     dir_path = os.path.dirname(file_path)
     full_dir_components = dir_path.split(os.sep)
     folder_conversion_stop_level = 6
     
     logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
+    
+    print(f"Full directory components: {full_dir_components}")
+    logging.info(f"Full directory components: {full_dir_components}")
     
     for i in range(len(full_dir_components) - 1, folder_conversion_stop_level, -1):
         current_dir = os.sep.join(full_dir_components[:i+1])
@@ -352,6 +376,8 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
             for entry in it:
                 if entry.is_dir() and len(entry.path) > dir_length_threshold:
                     sub_dir_path = entry.path
+                    
+                    logging.info(f"Folder over threshold found: {sub_dir_path} | Length: {len(sub_dir_path)} | Threshold: {dir_length_threshold} | Attempting to shorten ...")
                     
                     # Process the long sub-folder
                     sub_dir_components = [break_down_dir(component) for component in sub_dir_path.split(os.sep)]
@@ -370,6 +396,12 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
                         dictionary = load_dictionary(dictionary_path)
                         new_sub_dir_component = [convert_components(component, dictionary) for component in sub_dir_components[-1]]
                     
+                    print(f"Original Directory components: {sub_dir_components}")
+                    logging.info(f"Directory components: {sub_dir_components}")
+    
+                    print(f"New directory components: {new_sub_dir_component}")
+                    logging.info(f"New directory components: {new_sub_dir_component}")
+                    
                     new_sub_dir_path = os.sep.join(full_dir_components[:-1] + ['-'.join(new_sub_dir_component)])
                     
                     if  sub_dir_path == new_sub_dir_path:
@@ -382,89 +414,9 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
                         simulate_rename(sub_dir_path, new_sub_dir_path, long_dir_path_modified_output)
                     else:
                         rename_dir(sub_dir_path, new_sub_dir_path)
-
-
-def shorten_long_dir_old(file_path, if_use_regular_expression, dir_length_threshold, dry_run):
-    """
-    Renames a directory to a shorter name based on a provided dictionary.
-
-    This function breaks down the directory path into components, converts the components using a dictionary, 
-    and then joins the components back together to form a new directory path. 
-    If a naming conflict occurs, it tries to resolve the conflict by appending a number to the directory name. 
-    If the new directory path is still too long after conversion, it logs an error and does not rename the directory.
-    """
-    dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
-    dir_path_regex = CONFIG_VALUES.get('dir_path_regex')
-    dir_path = os.path.dirname(file_path)
-    
-    logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
-    print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
-    
-    # Check if directory is already within the threshold
-    if len(dir_path) <= dir_length_threshold:
-        return dir_path
-    
-    dir_components = [break_down_dir(component) for component in dir_path.split(os.sep)]
-    print(f"Directory components: {dir_components}")
-    
-    if if_use_regular_expression:
-        print(f"Using regular expression to break down directory path: {dir_path}")
-        logging.info(f"Using regular expression to break down directory path: {dir_path}")
-        regex = re.compile(dir_path_regex)
-        new_dir_components = dir_components[:7] + [[regex.sub('', word) if len(word) > 3 else word for word in component] for component in dir_components[7:]]    # if we want to remove vowels from the 8th level of the directory
-        # new_dir_components = [[regex.sub('', word) for word in component] for component in dir_components]
-    else:
-        print(f"Using default method to break down directory path: {dir_path}")
-        logging.info(f"Using default method to break down directory path: {dir_path}")
-        dictionary = load_dictionary(dictionary_path)
-        new_dir_components = [convert_components(component, dictionary) for component in dir_components]
-    
-    
-    org_dir_path_components = dir_path.split(os.sep)
-    
-    print(f"Directory components: {dir_components}")
-    logging.info(f"Directory components: {dir_components}")
-    
-    print(f"New directory components: {new_dir_components}")
-    logging.info(f"New directory components: {new_dir_components}")
-    
-    # Start from the end of the path and work towards the root, stopping at level 3 from the root, like C:\Users\username\Documents
-    stop_level = 6      # need to add 3 extra level for \\? prefix
-    for i in range(len(new_dir_components) - 1, stop_level, -1):
-        # Skip if the original and new directory components are the same
-        if dir_components[i] == new_dir_components[i]:
-            print(f"No change for sub-folder: {os.sep.join(org_dir_path_components[:i+1])}  | Moving one level up and continue the check ...")
-            logging.info(f"No change for sub-folder: {os.sep.join(org_dir_path_components[:i+1])} | Moving one level up and continue the check ...")
-            continue
-        
-        #old_dir_path = os.sep.join(['-'.join(component) for component in dir_components[:i+1]])
-        old_dir_path = os.sep.join(org_dir_path_components[:i+1])
-        #new_dir_path = os.sep.join(['-'.join(component) for component in dir_components[:i]] + ['-'.join(component) for component in new_dir_components[i]])
-        new_dir_path = os.sep.join(org_dir_path_components[:i] + ['-'.join(new_dir_components[i])])
-        
-        print(f"Attempting to rename: {old_dir_path} to {new_dir_path}")
-        
-        # Skip if the old and new directory names are the same
-        if old_dir_path == new_dir_path:
-            logging.info(f"Old and new directory names are the same: {old_dir_path} - No need to rename, skipping...")
-            continue
-        
-        # Try to rename
-        if dry_run:
-            long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
-            simulate_rename(old_dir_path, new_dir_path, long_dir_path_modified_output)
-        else:
-            new_dir_path = rename_dir(old_dir_path, new_dir_path)
-        
-        if len(new_dir_path) <= dir_length_threshold:
-            logging.info(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
-            print(f"Completed shorten process on: {dir_path} | New folder path: {new_dir_path} | New folder length: {len(new_dir_path)}")
-            break
-        else:
-            logging.info(f"New folder path is still too long: {new_dir_path} | New folder length: {len(new_dir_path)} | Threshold: {dir_length_threshold}")
-            print(f"New folder path is still too long: {new_dir_path} | New folder length: {len(new_dir_path)} | Threshold: {dir_length_threshold}")
-        
-    return new_dir_path
+                #elif entry.is_dir() and len(entry.path) <= dir_length_threshold:
+                    #logging.info(f"Folder is within threshold: {entry.path} | Length: {len(entry.path)} | Threshold: {dir_length_threshold} | Skipping ...")
+                    #print(f"Folder is within threshold: {entry.path} | Length: {len(entry.path)} | Threshold: {dir_length_threshold} | Skipping ...")
 
 
 def rename_dir(old_dir_path, new_dir_path):
