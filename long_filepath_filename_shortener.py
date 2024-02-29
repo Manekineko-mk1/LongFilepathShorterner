@@ -341,9 +341,11 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
     logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     
-    
     for i in range(len(full_dir_components) - 1, folder_conversion_stop_level, -1):
         current_dir = os.sep.join(full_dir_components[:i+1])
+        
+        logging.info(f"Scanning directory: {current_dir}")
+        print(f"Scanning directory: {current_dir}")
         
         # Scan the parent directory for long sub-folders
         with os.scandir(current_dir) as it:
@@ -370,12 +372,14 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
                     
                     new_sub_dir_path = os.sep.join(full_dir_components[:-1] + ['-'.join(new_sub_dir_component)])
                     
-                    if new_sub_dir_path == new_sub_dir_path:
+                    if  sub_dir_path == new_sub_dir_path:
                         logging.info(f"No change for sub-folder: {sub_dir_path} | Moving one level up and continue the check ...")
                         continue
                     
                     if dry_run:
                         logging.info(f"Attempting to rename: {sub_dir_path} to {new_sub_dir_path}")
+                        long_dir_path_modified_output = CONFIG_VALUES.get('long_dir_path_modified_output')
+                        simulate_rename(sub_dir_path, new_sub_dir_path, long_dir_path_modified_output)
                     else:
                         rename_dir(sub_dir_path, new_sub_dir_path)
 
