@@ -360,15 +360,15 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
                         print(f"Using regular expression to break down directory path: {sub_dir_path}")
                         logging.info(f"Using regular expression to break down directory path: {sub_dir_path}")
                         regex = re.compile(dir_path_regex)
-                        new_sub_dir_component = regex.sub('', sub_dir_components[-1]) if len(sub_dir_components[-1]) > 3 else sub_dir_components[-1]          
+                        new_sub_dir_component = [regex.sub('', component) if len(component) > 3 else component for component in sub_dir_components[-1]]
                     else:
                         dictionary_path = os.path.join(CONFIG_VALUES.get('config_dir'), CONFIG_VALUES.get('dictionary_path'))
                         print(f"Using default method to break down directory path: {dir_path}")
                         logging.info(f"Using default method to break down directory path: {dir_path}")
                         dictionary = load_dictionary(dictionary_path)
-                        new_sub_dir_component = convert_components(sub_dir_components[-1], dictionary)
+                        new_sub_dir_component = [convert_components(component, dictionary) for component in sub_dir_components[-1]]
                     
-                    new_sub_dir_path = os.sep.join(full_dir_components[:-1] + [new_sub_dir_component])
+                    new_sub_dir_path = os.sep.join(full_dir_components[:-1] + ['-'.join(new_sub_dir_component)])
                     
                     if new_sub_dir_path == new_sub_dir_path:
                         logging.info(f"No change for sub-folder: {sub_dir_path} | Moving one level up and continue the check ...")
@@ -564,11 +564,6 @@ def scan_long_paths_and_long_filename(base_dir, counters):
         if entry.is_file():
             file_path = entry.path
             
-                
-            # logging.info(f"File path: {file_path}")
-            # logging.info(f"Checking file: {entry.name}")
-            # logging.info(f"Filename length: {len(entry.name)}")
-                
             if len(os.path.basename(file_path)) >= filename_length_threshold:
                 if counters['filename_counter'] >= scan_entry_threshold:
                     counters['filename_file_part'] += 1
