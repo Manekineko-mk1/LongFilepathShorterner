@@ -115,7 +115,7 @@ def load_dictionary(dictionary_path):
         raise FileNotFoundError(f"Dictionary file does not exist: {dictionary_path}")
     
     try:
-        with open(dictionary_path, 'r') as f:
+        with open(dictionary_path, 'r', encoding='utf-8') as f:
             reader = csv.reader(f, delimiter=',')
             dictionary_conversion_pairs = {rows[0].strip():rows[1].strip() for rows in reader}
     except Exception as e:
@@ -586,7 +586,7 @@ def process_dir_or_filename(process_type):
 
     for file_path in glob.glob(os.path.join(output_dir, scan_dir, file_pattern)):
         try:
-            with open(file_path, 'r') as f:                
+            with open(file_path, 'r', encoding='utf-8') as f:                
                 for line in f:
                     path = line.strip()
                     try:

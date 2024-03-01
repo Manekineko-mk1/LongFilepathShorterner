@@ -75,7 +75,7 @@ def get_file_hash(file_path):
     return file_hash.hexdigest()
 
 def write_to_csv(file_path, row):
-    with open(file_path, 'a', newline='') as file:
+    with open(file_path, 'a', encoding='utf-8' , newline='') as file:
         writer = csv.writer(file)
         writer.writerow(row)
 
