@@ -376,6 +376,7 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
             for entry in it:
                 if entry.is_dir() and len(entry.path) > dir_length_threshold:
                     sub_dir_path = entry.path
+                    sub_dir_path_components = sub_dir_path.split(os.sep)
                     
                     logging.info(f"Folder over threshold found: {sub_dir_path} | Length: {len(sub_dir_path)} | Threshold: {dir_length_threshold} | Attempting to shorten ...")
                     
@@ -402,7 +403,7 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
                     print(f"New directory components: {new_sub_dir_component}")
                     logging.info(f"New directory components: {new_sub_dir_component}")
                     
-                    new_sub_dir_path = os.sep.join(full_dir_components[:-1] + ['-'.join(new_sub_dir_component)])
+                    new_sub_dir_path = os.sep.join(sub_dir_path_components[:-1] + ['-'.join(new_sub_dir_component)])
                     
                     if  sub_dir_path == new_sub_dir_path:
                         logging.info(f"No change for sub-folder: {sub_dir_path} | Moving one level up and continue the check ...")
