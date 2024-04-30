@@ -50,7 +50,8 @@ def read_config_values():
         'date_str': datetime.now().strftime('%Y%m%d'),
         'regular_expression': config.get('REGULAR_EXPRESSION', 'regular_expression'),
         'dir_path_regex': config.get('REGULAR_EXPRESSION', 'dir_path_regex'),
-        'filename_regex': config.get('REGULAR_EXPRESSION', 'filename_regex')
+        'filename_regex': config.get('REGULAR_EXPRESSION', 'filename_regex'),
+        'folder_conversion_stop_level': config.get('DEFAULT', 'folder_conversion_stop_level')
     }
     
     config_values['dry_run'] = True if config_values['dry_run'].lower() in ['true', '1', 'yes'] else False
@@ -357,7 +358,8 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
     
     dir_path = os.path.dirname(file_path)
     full_dir_components = dir_path.split(os.sep)
-    folder_conversion_stop_level = 6
+    #folder_conversion_stop_level = 6
+    folder_conversion_stop_level = CONFIG_VALUES.get('folder_conversion_stop_level')
     
     logging.info(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
     print(f"Processing directory shorten process on: {dir_path} | dir_length: {len(dir_path)} | dir_length_threshold: {dir_length_threshold}")
@@ -415,9 +417,6 @@ def shorten_long_dir(file_path, if_use_regular_expression, dir_length_threshold,
                         simulate_rename(sub_dir_path, new_sub_dir_path, long_dir_path_modified_output)
                     else:
                         rename_dir(sub_dir_path, new_sub_dir_path)
-                #elif entry.is_dir() and len(entry.path) <= dir_length_threshold:
-                    #logging.info(f"Folder is within threshold: {entry.path} | Length: {len(entry.path)} | Threshold: {dir_length_threshold} | Skipping ...")
-                    #print(f"Folder is within threshold: {entry.path} | Length: {len(entry.path)} | Threshold: {dir_length_threshold} | Skipping ...")
 
 
 def rename_dir(old_dir_path, new_dir_path):
@@ -557,13 +556,6 @@ def process_scan():
     counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
     scan_long_paths_and_long_filename(base_dir, counters)
     
-    # if check_long_path_support(base_dir) is True:
-    #     logging.info("Long path support is enabled. Please disable it by setting the registry key LongPathsEnabled to 0 to simulate long path errors.")
-    # else:
-    #     logging.info("Long path support is disabled. Scanning for long paths and long filenames.")
-    #     counters = {'dir_counter': 0, 'filename_counter': 0, 'dir_file_part': 1, 'filename_file_part': 1}
-    #     scan_long_paths_and_long_filename(base_dir, counters)
-
 
 def process_dir_or_filename(process_type):
     """
@@ -605,7 +597,7 @@ def process_dir_or_filename(process_type):
 
 def main():
     parser = argparse.ArgumentParser(description='Shorten long file names or directory paths.')
-    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='filename', help='Specify whether to process directories, filenames, or perform a scan.')
+    parser.add_argument('-p', '--process', choices=['dir', 'filename', 'scan'], default='scan', help='Specify whether to process directories (-p dir), filenames (-p filename), or perform a scan (-p scan).')
     args = parser.parse_args()
 
     print(f"Base directory: {CONFIG_VALUES.get('base_dir')}")
